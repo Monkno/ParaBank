@@ -1,393 +1,395 @@
 # Test Cases — ParaBank (parabank.parasoft.com)
 
-ParaBank es la aplicación demo de banca online de Parasoft. **No publica una lista
-oficial de casos de prueba**, así que los de abajo se derivaron explorando la
-aplicación en vivo el **2026-09-03**: navegando el sitio, inspeccionando el DOM de
-los formularios y sondeando la API REST pública.
+ParaBank is Parasoft's demo online banking application. It **publishes no official
+list of test cases**, so the ones below were derived by exploring the live
+application on **2026-09-03**: navigating the site, inspecting the DOM of its forms,
+and probing the public REST API.
 
-Cada caso lleva un ID `TC##` al que se mapea el test automatizado correspondiente.
-El mapeo exacto TC## → archivo:test está en `README.md`.
+Each case carries a `TC##` id that maps to its automated test. The exact
+TC## → file:test mapping lives in `README.md`.
 
-**Leyenda de verificación**
+**Verification legend**
 
-- ✅ **Observado** — confirmado manualmente durante la exploración.
-- 🔎 **Automatizado** — el caso está cubierto por un test que corre en verde.
-- ❌ **No automatizado** — el test se retiró: la aplicación no hace lo que el caso
-  describe y el desvío quedó como defecto en `STRATEGY.md`. Ver la sección 6 de ese documento.
-- ⚠️ **Desvío** — la aplicación no se comporta como el caso decía. **Manda la app**:
-  el caso fue reescrito para describir lo que la aplicación hace de verdad, y el
-  desvío quedó registrado como defecto en `STRATEGY.md`. La aserción sigue lo
-  observado; no se aflojó para que pasara.
+- ✅ **Observed** — confirmed manually during exploration.
+- 🔎 **Automated** — the case is covered by a test that runs green.
+- ❌ **Not automated** — the test was withdrawn: the application does not do what the
+  case describes, and the deviation is recorded as a defect in `STRATEGY.md`. See
+  section 6 of that document.
+- ⚠️ **Deviation** — the application does not behave as the case said. **The
+  application wins**: the case was rewritten to describe what the application
+  actually does, and the deviation was recorded as a defect in `STRATEGY.md`. The
+  assertion follows what was observed; it was not loosened to make the test pass.
 
-**URL base:** `https://parabank.parasoft.com/parabank/index.htm`
-(sin el `jsessionid` que la app agrega a cada link — ver D15 en `STRATEGY.md`).
-
----
-
-## A. Sitio público
-
-### TC01 — La home carga con el panel de login y las secciones informativas ✅ 🔎
-
-1. Abrir la home.
-
-**Esperado:** título `ParaBank | Welcome | Online Banking`; formulario *Customer
-Login* con `input[name=username]`, `input[name=password]` y botón *Log In*; links a
-*Register* y *Forgot login info?*; secciones de noticias y servicios no vacías.
-
-### TC02 — La navegación principal alcanza cada página del sitio ✅ 🔎 ⚠️
-
-1. Recorrer *Home*, *About Us*, *Services*, *Site Map*, *Contact Us* desde el pie.
-
-**Esperado:** cada destino responde HTTP 200 con su propio título y su propio
-contenido; ningún link interno rompe.
-
-> ⚠️ **Desvío (D08).** `services.htm` no muestra los servicios de ParaBank: sirve
-> el *service list* de Apache CXF de una demo SOAP ajena (Parasoft Bookstore),
-> inyectando un documento HTML completo — `<!DOCTYPE>`, `<html>`, `<head>`,
-> `<title>` — dentro de `<div id="rightPanel">`, y publicando en el cuerpo un
-> usuario y contraseña de WS-Security (`soatest`/`soatest`). El caso se ajustó a
-> lo que la app hace y hay un test dedicado (`D08`) que falla el día que se
-> arregle.
-
-### TC03 — El formulario de Contact Us acepta una consulta ✅ 🔎
-
-1. Abrir *Contact Us*, completar nombre, email, teléfono y mensaje, y enviar.
-
-**Esperado:** la confirmación nombra al remitente (`Thank you <nombre>`) e informa
-que un representante se pondrá en contacto; el formulario desaparece.
-
-### TC04 — Contact Us vacío muestra las validaciones de cada campo ✅ 🔎
-
-1. Enviar el formulario de contacto sin completar nada.
-
-**Esperado:** exactamente cuatro mensajes — *Name / Email / Phone / Message is
-required.* — el formulario sigue en pantalla y no se envía la consulta.
+**Base URL:** `https://parabank.parasoft.com/parabank/index.htm`
+(without the `jsessionid` the application appends to every link — see D15 in
+`STRATEGY.md`).
 
 ---
 
-## B. Registro y autenticación
+## A. Public site
 
-> Cada test registra su propio usuario, con username, nombre, apellido y SSN únicos
-> por worker y por milisegundo. Nunca se reutiliza ni se modifica un usuario
-> preexistente: la base es compartida.
+### TC01 — The home page loads with the login panel and the information sections ✅ 🔎
 
-### TC05 — Registro de un usuario nuevo ✅ 🔎
+1. Open the home page.
 
-1. Abrir *Register*, completar los once campos y enviar.
+**Expected:** title `ParaBank | Welcome | Online Banking`; a *Customer Login* form
+with `input[name=username]`, `input[name=password]` and a *Log In* button; links to
+*Register* and *Forgot login info?*; non-empty news and services sections.
 
-**Esperado:** `Welcome <username>` más «Your account was created successfully. You
-are now logged in.»; la sesión queda abierta; se crea **una** cuenta CHECKING con
-el saldo inicial que fije el servidor; y el registro almacenado coincide campo por
-campo con lo tipeado (nombre, apellido, dirección completa, teléfono, SSN).
+### TC02 — The main navigation reaches every page of the site ✅ 🔎 ⚠️
 
-### TC06 — Registro con un username ya existente ✅ 🔎
+1. Walk *Home*, *About Us*, *Services*, *Site Map*, *Contact Us* from the footer.
 
-1. Registrar un usuario. Intentar registrar otro con el mismo `customer.username`
-   y todos los demás datos distintos.
+**Expected:** every destination answers HTTP 200 with its own title and its own
+content; no internal link is broken.
 
-**Esperado:** un único error, *This username already exists.*; no se crea un
-segundo usuario y el original sigue intacto (se comprueba volviendo a entrar con
-él y releyendo su registro).
+> ⚠️ **Deviation (D08).** `services.htm` does not show ParaBank's services: it serves
+> the Apache CXF *service list* of an unrelated SOAP demo (Parasoft Bookstore),
+> injecting a complete HTML document — `<!DOCTYPE>`, `<html>`, `<head>`, `<title>` —
+> inside `<div id="rightPanel">`, and publishing a WS-Security username and password
+> (`soatest`/`soatest`) in the body. The case was adjusted to what the application
+> does, and a dedicated test (`D08`) fails the day it is fixed.
 
-### TC07 — Registro con formulario vacío ✅ 🔎 ⚠️
+### TC03 — The Contact Us form accepts an enquiry ✅ 🔎
 
-1. Enviar el formulario de registro sin completar nada.
+1. Open *Contact Us*, fill in name, email, phone and message, and submit.
 
-**Esperado:** diez mensajes de campo obligatorio, en orden: First name, Last name,
-Address, City, State, Zip Code, Social Security Number, Username, Password,
-Password confirmation.
+**Expected:** the confirmation names the sender (`Thank you <name>`) and states that a
+representative will be in touch; the form disappears.
 
-> ⚠️ **Desvío (D10).** *Phone #* **no** es obligatorio, ni en el registro ni en
-> *Update Contact Info*, pese a estar rodeado de diez campos que sí lo son. El caso
-> original decía «cada campo obligatorio»; el listado se cerró a los diez que la
-> app valida y hay un test dedicado (`D10`) que documenta la excepción.
+### TC04 — An empty Contact Us shows the validation for every field ✅ 🔎
 
-### TC08 — Registro con contraseñas que no coinciden ✅ ❌
+1. Submit the contact form with nothing filled in.
 
-> ❌ **No automatizado.** El test existía y fallaba de forma reproducible con un solo
-> worker, porque la aplicación no hace lo que este caso describe. Se retiró en lugar de
-> aflojar la aserción. El comportamiento real está documentado como **D20** en `STRATEGY.md`.
+**Expected:** exactly four messages — *Name / Email / Phone / Message is required.* —
+the form stays on screen and the enquiry is not sent.
 
-1. Completar el registro con `customer.password` y `repeatedPassword` distintos.
+---
 
-**Esperado:** un único error, *Passwords did not match.*, y no se crea el usuario —
-se comprueba intentando entrar con **ambas** contraseñas.
+## B. Registration and authentication
 
-### TC09 — Login con credenciales válidas ✅ 🔎
+> Every test registers its own user, with a username, first name, last name and SSN
+> unique per worker and per millisecond. A pre-existing user is never reused or
+> modified: the database is shared.
 
-1. Con una cuenta existente y el navegador **deslogueado**, entrar desde la home.
+### TC05 — Registering a new user ✅ 🔎
 
-**Esperado:** *Accounts Overview* con las cuentas de ese cliente (y solo esas,
-cotejadas contra la API) y el menú lateral con sus ocho entradas.
+1. Open *Register*, fill in the eleven fields and submit.
 
-### TC10 — Login con credenciales inválidas ✅ ❌
+**Expected:** `Welcome <username>` plus "Your account was created successfully. You
+are now logged in."; the session is open; **one** CHECKING account is created with
+whatever opening balance the server sets; and the stored record matches what was
+typed field by field (first name, last name, full address, phone, SSN).
 
-> ❌ **No automatizado.** El test existía y fallaba de forma reproducible con un solo
-> worker, porque la aplicación no hace lo que este caso describe. Se retiró en lugar de
-> aflojar la aserción. El comportamiento real está documentado como **D19** en `STRATEGY.md`.
+### TC06 — Registering with a username that already exists ✅ 🔎
 
-1. Usuario inexistente. 2. Usuario real con contraseña incorrecta.
+1. Register a user. Try to register another with the same `customer.username` and
+   every other field different.
 
-**Esperado:** *The username and password could not be verified.*; no se accede al
-área privada; y la cuenta real sigue siendo utilizable después del rechazo.
+**Expected:** a single error, *This username already exists.*; no second user is
+created and the original is untouched (verified by signing back in as that user and
+re-reading its record).
 
-### TC11 — Login con campos vacíos ✅ 🔎
+### TC07 — Registering with an empty form ✅ 🔎 ⚠️
 
-1. Enviar el formulario de login sin completar nada.
+1. Submit the registration form with nothing filled in.
 
-**Esperado:** *Please enter a username and password.*; no se inicia sesión.
+**Expected:** ten required-field messages, in order: First name, Last name, Address,
+City, State, Zip Code, Social Security Number, Username, Password, Password
+confirmation.
 
-### TC12 — Logout cierra la sesión ✅ 🔎
+> ⚠️ **Deviation (D10).** *Phone #* is **not** required, neither on registration nor
+> on *Update Contact Info*, despite sitting among ten fields that are. The original
+> case said "every required field"; the list was closed to the ten the application
+> validates, and a dedicated test (`D10`) documents the exception.
 
-1. Estando logueado, usar *Log Out*.
+### TC08 — Registering with passwords that do not match ✅ ❌
 
-**Esperado:** se vuelve a `/parabank/index.htm` con el panel de login, y la misma
-URL privada que funcionaba un segundo antes deja de funcionar.
+> ❌ **Not automated.** The test existed and failed reproducibly on a single worker,
+> because the application does not do what this case describes. It was withdrawn
+> rather than having its assertion loosened. The actual behaviour is documented as
+> **D20** in `STRATEGY.md`.
 
-### TC13 — Las páginas privadas están protegidas sin sesión ✅ 🔎 ⚠️
+1. Complete the registration with different `customer.password` and
+   `repeatedPassword`.
 
-1. Sin sesión, navegar directo a `overview.htm`, `transfer.htm` y `billpay.htm`.
+**Expected:** a single error, *Passwords did not match.*, and no user created —
+verified by attempting to sign in with **both** passwords.
 
-**Esperado:** las tres responden **HTTP 500** con la página genérica *An internal
-error has occurred and has been logged.*; no se filtra ninguna fila de cuentas ni
-el menú privado.
+### TC09 — Logging in with valid credentials ✅ 🔎
 
-> ⚠️ **Desvío (D03).** El caso original esperaba un redirect al login o un error de
-> sesión. ParaBank no hace ninguna de las dos: devuelve 500 y una traza genérica.
-> La aserción sigue a la app. Un 500 no filtra datos, pero convierte un problema de
-> autorización en un error de servidor y hace imposible distinguirlo de una caída
-> real.
+1. With an existing account and the browser **signed out**, log in from the home page.
+
+**Expected:** *Accounts Overview* with that customer's accounts (and only those,
+cross-checked against the API) and the side menu with its eight entries.
+
+### TC10 — Logging in with invalid credentials ✅ ❌
+
+> ❌ **Not automated.** The test existed and failed reproducibly on a single worker,
+> because the application does not do what this case describes. It was withdrawn
+> rather than having its assertion loosened. The actual behaviour is documented as
+> **D19** in `STRATEGY.md`.
+
+1. A username that does not exist. 2. A real username with the wrong password.
+
+**Expected:** *The username and password could not be verified.*; the private area is
+not reached; and the real account remains usable after the rejection.
+
+### TC11 — Logging in with empty fields ✅ 🔎
+
+1. Submit the login form with nothing filled in.
+
+**Expected:** *Please enter a username and password.*; no session is started.
+
+### TC12 — Logging out ends the session ✅ 🔎
+
+1. While signed in, use *Log Out*.
+
+**Expected:** the browser returns to `/parabank/index.htm` with the login panel, and
+the same private URL that worked a second earlier stops working.
+
+### TC13 — Private pages are protected without a session ✅ 🔎 ⚠️
+
+1. With no session, navigate directly to `overview.htm`, `transfer.htm` and
+   `billpay.htm`.
+
+**Expected:** all three answer **HTTP 500** with the generic *An internal error has
+occurred and has been logged.* page; no account row and no private menu leak.
+
+> ⚠️ **Deviation (D03).** The original case expected a redirect to the login or a
+> session error. ParaBank does neither: it returns 500 and a generic trace. The
+> assertion follows the application. A 500 leaks no data, but it turns an
+> authorisation problem into a server error and makes it impossible to tell apart
+> from a real outage.
 >
-> ⚠️ **Desvío relacionado (D04).** `activity.htm?id=<n>` **no** está protegida así:
-> responde 200 y renderiza su shell completo, delegando el rechazo al AJAX contra
-> el proxy autenticado. No se filtra nada hoy, pero la guarda del servidor
-> sencillamente no está. Cubierto por el test `D04`.
+> ⚠️ **Related deviation (D04).** `activity.htm?id=<n>` is **not** protected this way:
+> it answers 200 and renders its full shell, deferring the rejection to the AJAX call
+> against the authenticated proxy. Nothing leaks today, but the server-side guard is
+> simply absent. Covered by the `D04` test.
 
-### TC14 — Forgot login info devuelve las credenciales del cliente ✅ 🔎 ⚠️
+### TC14 — Forgot login info returns the customer's credentials ✅ 🔎 ⚠️
 
-1. Abrir *Forgot login info?* y completar los datos personales exactos del cliente.
+1. Open *Forgot login info?* and fill in the customer's exact personal details.
 
-**Esperado:** *Your login information was located successfully. You are now logged
-in.* seguido de `Username: <u>` y `Password: <p>` en texto plano, **y la sesión
-queda abierta**. Con un solo campo mal (p. ej. el SSN) responde *The customer
-information provided could not be found.* y no abre sesión. Vacío, lista los siete
-campos obligatorios.
+**Expected:** *Your login information was located successfully. You are now logged
+in.* followed by `Username: <u>` and `Password: <p>` in plain text, **and the session
+is opened**. With a single field wrong (the SSN, for instance) it answers *The
+customer information provided could not be found.* and opens no session. Empty, it
+lists the seven required fields.
 
-> ⚠️ **Desvío (D02).** El caso decía «muestra el username y la contraseña». Hace
-> eso **y además loguea al visitante**. Combinado con D01 —
-> `GET /services/bank/customers/{id}` entrega nombre, dirección y SSN a un llamador
-> anónimo — la cadena completa es una toma de control de cuenta partiendo de un
-> número de cuenta.
+> ⚠️ **Deviation (D02).** The case said "shows the username and the password". It does
+> that **and also signs the visitor in**. Combined with D01 —
+> `GET /services/bank/customers/{id}` hands the name, address and SSN to an anonymous
+> caller — the full chain is an account takeover starting from an account number.
 >
-> ⚠️ **Nota de datos.** El lookup exige que los datos personales sean **únicos en
-> toda la base**: si dos clientes comparten nombre + dirección + SSN, responde «no
-> se encontró». Por eso la factory genera nombre, apellido y SSN únicos, no solo el
-> username.
+> ⚠️ **Data note.** The lookup requires the personal details to be **unique across the
+> whole database**: if two customers share name + address + SSN, it answers "not
+> found". That is why the factory generates a unique first name, last name and SSN,
+> not just a unique username.
 
 ---
 
-## C. Cuentas
+## C. Accounts
 
-### TC15 — Accounts Overview lista las cuentas con su saldo ✅ 🔎
+### TC15 — Accounts Overview lists the accounts with their balances ✅ 🔎
 
-1. Loguearse, abrir una segunda cuenta (para que el total sea una suma real) y
-   abrir *Accounts Overview*.
+1. Sign in, open a second account (so the total is a real sum) and open *Accounts
+   Overview*.
 
-**Esperado:** una fila por cuenta con número, saldo y monto disponible; el
-disponible es `max(saldo, 0)`; y la fila *Total* es exactamente la suma de los
-saldos que la propia tabla imprimió. Cada importe se coteja contra
-`GET /customers/{id}/accounts`, nunca contra literales.
+**Expected:** one row per account with number, balance and available amount; the
+available amount is `max(balance, 0)`; and the *Total* row is exactly the sum of the
+balances the table itself printed. Every amount is cross-checked against
+`GET /customers/{id}/accounts`, never against literals.
 
-### TC16 — Abrir una cuenta nueva ✅ 🔎
+### TC16 — Opening a new account ✅ 🔎
 
-1. *Open New Account*, elegir tipo (CHECKING o SAVINGS) y cuenta de origen.
+1. *Open New Account*, choose the type (CHECKING or SAVINGS) and the source account.
 
-**Esperado:** se muestra el número de la cuenta nueva; la cuenta aparece en el
-overview con el tipo elegido y pertenece a este cliente; **el saldo de origen baja
-exactamente el depósito y la cuenta nueva queda con exactamente ese importe**; y el
-total del cliente no cambia.
+**Expected:** the new account number is shown; the account appears in the overview
+with the chosen type and belongs to this customer; **the source balance drops by
+exactly the deposit and the new account holds exactly that amount**; and the
+customer's total does not change.
 
-> **Nota de datos.** El depósito mínimo ($100.00 según el texto de la página) es un
-> parámetro global del servidor (`minimumBalance`) que cualquiera puede cambiar
-> desde `admin.htm`. El test lo **deriva** de lo que efectivamente salió de la
-> cuenta de origen en vez de escribirlo.
+> **Data note.** The minimum deposit ($100.00 per the page text) is a global server
+> parameter (`minimumBalance`) that anyone can change from `admin.htm`. The test
+> **derives** it from what actually left the source account instead of hardcoding it.
 
-### TC17 — El detalle de cuenta muestra los datos correctos ✅ 🔎
+### TC17 — The account detail shows the correct data ✅ 🔎
 
-1. Desde el overview, hacer clic en el número de cuenta.
+1. From the overview, click the account number.
 
-**Esperado:** número, tipo, saldo y disponible coinciden con la fila del overview y
-con la API. Una cuenta recién creada muestra *No transactions found.* y cero filas.
+**Expected:** number, type, balance and available amount match the overview row and
+the API. A newly created account shows *No transactions found.* and zero rows.
 
-### TC18 — Transferir fondos entre cuentas ✅ 🔎
+### TC18 — Transferring funds between accounts ✅ 🔎
 
-1. *Transfer Funds*: importe, cuenta origen, cuenta destino, confirmar.
+1. *Transfer Funds*: amount, source account, destination account, confirm.
 
-**Esperado:** la confirmación repite importe y cuentas; **el origen baja
-exactamente ese importe, el destino sube exactamente ese importe, y la suma de los
-dos no cambia**. La aserción es aritmética sobre saldos leídos antes y después.
+**Expected:** the confirmation repeats the amount and the accounts; **the source drops
+by exactly that amount, the destination rises by exactly that amount, and the sum of
+the two does not change**. The assertion is arithmetic over balances read before and
+after.
 
-### TC19 — La transferencia queda registrada en la actividad de la cuenta ✅ 🔎
+### TC19 — The transfer is recorded in the account activity ✅ 🔎
 
-1. Tras la transferencia, abrir el detalle de ambas cuentas.
+1. After the transfer, open the detail of both accounts.
 
-**Esperado:** en el destino, un crédito por el importe con descripción *Funds
-Transfer Received* y la columna débito vacía; en el origen, un débito por el mismo
-importe con descripción *Funds Transfer Sent*.
+**Expected:** on the destination, a credit for the amount described *Funds Transfer
+Received* with an empty debit column; on the source, a debit for the same amount
+described *Funds Transfer Sent*.
 
-> **Nota de redundancia.** TC18 y TC19 son una sola operación verificada en dos
-> niveles, así que comparten una única transferencia (`TC18 + TC19` en
-> `transfer.spec.ts`). Ver `STRATEGY.md`, «Redundancia».
+> **Redundancy note.** TC18 and TC19 are one operation verified at two levels, so they
+> share a single transfer (`TC18 + TC19` in `transfer.spec.ts`). See `STRATEGY.md`,
+> "Redundancy".
 
-### TC20 — Pagar una factura (Bill Pay) ✅ ❌
+### TC20 — Paying a bill (Bill Pay) ✅ ❌
 
-> ❌ **No automatizado.** El test existía y fallaba de forma reproducible con un solo
-> worker, porque la aplicación no hace lo que este caso describe. Se retiró en lugar de
-> aflojar la aserción. El comportamiento real está documentado como **D17** en `STRATEGY.md`.
+> ❌ **Not automated.** The test existed and failed reproducibly on a single worker,
+> because the application does not do what this case describes. It was withdrawn
+> rather than having its assertion loosened. The actual behaviour is documented as
+> **D17** in `STRATEGY.md`.
 
-1. *Bill Pay*: beneficiario, dirección, teléfono, número de cuenta y verificación,
-   importe y cuenta de origen.
+1. *Bill Pay*: payee, address, phone, account number and its verification, amount and
+   source account.
 
-**Esperado:** la confirmación nombra al beneficiario, el importe y la cuenta; **el
-saldo de origen baja exactamente ese importe**; y aparece un débito *Bill Payment
-to `<beneficiario>`* por ese importe en la actividad de la cuenta.
+**Expected:** the confirmation names the payee, the amount and the account; **the
+source balance drops by exactly that amount**; and a debit *Bill Payment to
+`<payee>`* for that amount appears in the account activity.
 
-### TC21 — Bill Pay con formulario vacío ✅ 🔎
+### TC21 — Bill Pay with an empty form ✅ 🔎
 
-1. Enviar *Bill Pay* sin completar nada.
+1. Submit *Bill Pay* with nothing filled in.
 
-**Esperado:** exactamente nueve mensajes visibles — nombre, dirección, ciudad,
-estado, código postal, teléfono, *Account number is required.* dos veces (una por
-`Account #` y otra por `Verify Account #`) y *The amount cannot be empty.* — no se
-llama al servidor y ningún saldo cambia.
+**Expected:** exactly nine visible messages — name, address, city, state, zip code,
+phone, *Account number is required.* twice (once for `Account #` and once for *Verify
+Account #*) and *The amount cannot be empty.* — the server is not called and no
+balance changes.
 
-### TC22 — Bill Pay con cuenta de confirmación distinta ✅ ❌
+### TC22 — Bill Pay with a mismatched confirmation account ✅ ❌
 
-> ❌ **No automatizado.** El test existía y fallaba de forma reproducible con un solo
-> worker, porque la aplicación no hace lo que este caso describe. Se retiró en lugar de
-> aflojar la aserción. El comportamiento real está documentado como **D18** en `STRATEGY.md`.
+> ❌ **Not automated.** The test existed and failed reproducibly on a single worker,
+> because the application does not do what this case describes. It was withdrawn
+> rather than having its assertion loosened. The actual behaviour is documented as
+> **D18** in `STRATEGY.md`.
 
-1. Completar *Bill Pay* con `Account #` y `Verify Account #` diferentes.
+1. Complete *Bill Pay* with different `Account #` and `Verify Account #`.
 
-**Esperado:** un único error, *The account numbers do not match.*; no se realiza el
-pago ni cambia el saldo. Corregir **solo** la confirmación hace que el mismo
-formulario se envíe bien, lo que prueba que el rechazo era por eso y por nada más.
+**Expected:** a single error, *The account numbers do not match.*; no payment is made
+and no balance changes. Correcting **only** the confirmation makes the same form
+submit successfully, which proves the rejection was for that reason and nothing else.
 
-### TC23 — Buscar transacciones ✅ 🔎
+### TC23 — Finding transactions ✅ 🔎
 
-1. *Find Transactions*, buscar por ID de transacción, por fecha, por rango de
-   fechas y por importe.
+1. *Find Transactions*, searching by transaction ID, by date, by date range and by
+   amount.
 
-**Esperado:** cada criterio devuelve exactamente la transacción que el propio test
-creó, con importe, descripción y fecha correctos. Un importe inexistente devuelve
-cero filas. Una fecha mal formada muestra *Invalid date format* y no busca.
+**Expected:** each criterion returns exactly the transaction the test itself created,
+with the correct amount, description and date. A non-existent amount returns zero
+rows. A malformed date shows *Invalid date format* and runs no search.
 
-> **Nota de datos.** La fecha se toma de la transacción que devolvió el servidor,
-> nunca del reloj de la máquina: los dos discrepan alrededor de medianoche. Ver
-> también D07.
+> **Data note.** The date is taken from the transaction the server returned, never
+> from the machine clock: the two disagree around midnight. See also D07.
 >
-> **Nota de alcance.** *Find by Transaction ID* pega contra
-> `services_proxy/bank/transactions/{id}`, que **no** está acotado a la cuenta
-> seleccionada. Registrado como parte de D11.
+> **Scope note.** *Find by Transaction ID* hits
+> `services_proxy/bank/transactions/{id}`, which is **not** scoped to the selected
+> account. Recorded as part of D11.
 
-### TC24 — Solicitar un préstamo (aprobado) ✅ 🔎
+### TC24 — Requesting a loan (approved) ✅ 🔎
 
-1. *Request Loan*: importe 1000, pago inicial 100, cuenta de origen.
+1. *Request Loan*: amount 1000, down payment 100, source account.
 
-**Esperado:** *Approved* con proveedor y fecha; se crea una cuenta **LOAN** con
-saldo igual al importe prestado; **el pago inicial, y solo el pago inicial, sale de
-la cuenta de origen**; la cuenta nueva aparece en el overview.
+**Expected:** *Approved* with a provider and a date; a **LOAN** account is created
+with a balance equal to the amount lent; **the down payment, and only the down
+payment, leaves the source account**; the new account appears in the overview.
 
-> **Nota de datos.** La decisión depende de `loanProcessorThreshold`, un parámetro
-> global que se puede cambiar desde `admin.htm`. Si este caso pasa a *Denied* sin
-> que cambie el código, alguien tocó ese parámetro; el mensaje de la aserción lo
-> dice explícitamente.
+> **Data note.** The decision depends on `loanProcessorThreshold`, a global parameter
+> that can be changed from `admin.htm`. If this case turns *Denied* with no code
+> change, someone moved that parameter; the assertion message says so explicitly.
 
-### TC25 — Solicitar un préstamo desproporcionado ✅ 🔎
+### TC25 — Requesting a disproportionate loan ✅ 🔎
 
-1. Pedir un importe muy superior al saldo disponible.
+1. Request an amount far above the available balance.
 
-**Esperado:** *Denied* con el motivo *We cannot grant a loan in that amount with
-your available funds.*; **no** se crea ninguna cuenta y **no** se cobra el pago
-inicial.
+**Expected:** *Denied* with the reason *We cannot grant a loan in that amount with
+your available funds.*; **no** account is created and the down payment is **not**
+charged.
 
-### TC26 — Actualizar la información de contacto ✅ 🔎
+### TC26 — Updating the contact information ✅ 🔎
 
-1. *Update Contact Info*: el formulario llega precargado con el perfil registrado.
-   Cambiar nombre, apellido, dirección completa y teléfono, y guardar.
+1. *Update Contact Info*: the form arrives pre-filled with the registered profile.
+   Change first name, last name, full address and phone, and save.
 
-**Esperado:** *Profile Updated*; los datos nuevos persisten tras recargar la página
-y coinciden campo por campo con el registro del backend; el SSN, que no está en
-este formulario, no cambia.
+**Expected:** *Profile Updated*; the new data survives a page reload and matches the
+backend record field by field; the SSN, which is not on this form, does not change.
 
-### TC27 — Update Contact Info con campos vacíos ✅ 🔎
+### TC27 — Update Contact Info with empty fields ✅ 🔎
 
-1. Vaciar los seis campos obligatorios y guardar.
+1. Clear the six required fields and save.
 
-**Esperado:** seis mensajes de campo obligatorio; no se muestra el panel de éxito;
-el registro del backend conserva **todos** los valores anteriores y el formulario
-los vuelve a ofrecer tras recargar.
+**Expected:** six required-field messages; no success panel is shown; the backend
+record keeps **all** previous values and the form offers them again after a reload.
 
 ---
 
-## D. API REST
+## D. REST API
 
-### TC28 — La API devuelve los mismos saldos que la UI ✅ 🔎
+### TC28 — The API reports the same balances as the UI ✅ 🔎
 
-1. Leer una cuenta por UI (`activity.htm`).
-2. Leer `GET /services/bank/accounts/{id}` con `Accept: application/json`.
+1. Read an account through the UI (`activity.htm`).
+2. Read `GET /services/bank/accounts/{id}` with `Accept: application/json`.
 
-**Esperado:** `id`, `customerId`, `type` y `balance` coinciden con lo que muestra la
-interfaz, y los dos montajes del mismo recurso (`services` y `services_proxy`)
-coinciden entre sí.
+**Expected:** `id`, `customerId`, `type` and `balance` match what the interface shows,
+and the two mounts of the same resource (`services` and `services_proxy`) agree with
+each other.
 
 ---
 
-## E. Casos añadidos — huecos de la lista original
+## E. Added cases — gaps in the original list
 
-Estos no estaban en la lista derivada y cubren caminos negativos, límites y
-autorización, que es donde suelen vivir los defectos reales. Cada uno lleva el ID
-del defecto que documenta en `STRATEGY.md`.
+These were not in the derived list. They cover negative paths, boundaries and
+authorisation, which is where real defects tend to live. Each carries the id of the
+defect it documents in `STRATEGY.md`.
 
-| ID | Qué verifica |
+| ID | What it verifies |
 | --- | --- |
-| D01 | Saldos, historial y datos personales (incluido el SSN) legibles **sin sesión** |
-| D04 | `activity.htm` servida sin sesión mientras sus hermanas devuelven 500 |
-| D05 | `updateprofile.htm` incrusta usuario y contraseña del cliente en el HTML |
-| D06 | El WADL público declara `cleanDB`, `initializeDB` y `setParameter` (**nunca se invocan**) |
-| D07 | Toda fecha de transacción se muestra un día antes al oeste de UTC |
-| D08 | *Services* sirve un service list de CXF ajeno con credenciales |
-| D09 | Contact Us acepta un email y un teléfono con cualquier formato |
-| D10 | *Phone #* es opcional en registro y en actualización de perfil |
-| D11 | Un cliente logueado puede leer el detalle de la cuenta de otro cliente |
-| D12 | *Transfer Funds* con importe vacío muestra un error interno, no su validación |
-| D13 | *Bill Pay* permite girar en descubierto y deja el saldo negativo |
-| D14 | Un préstamo aprobado acredita la cuenta nueva sin transacción que lo explique |
-| D15 | El `jsessionid` viaja en la URL de cada link interno |
-| D16 | El redirect de logout revela el tipo de conexión al backend |
+| D01 | Balances, history and personal data (including the SSN) readable **without a session** |
+| D04 | `activity.htm` served without a session while its siblings return 500 |
+| D05 | `updateprofile.htm` embeds the customer's username and password in the HTML |
+| D06 | The public WADL advertises `cleanDB`, `initializeDB` and `setParameter` (**never invoked**) |
+| D07 | Every transaction date is displayed one day early west of UTC |
+| D08 | *Services* serves an unrelated CXF service list, with credentials |
+| D09 | Contact Us accepts an email and a phone number in any format |
+| D10 | *Phone #* is optional on registration and on profile update |
+| D11 | A signed-in customer can read another customer's account detail |
+| D12 | *Transfer Funds* with an empty amount shows an internal error, not its validation |
+| D13 | *Bill Pay* allows an overdraft and leaves the balance negative |
+| D14 | An approved loan credits the new account with no transaction to explain it |
+| D15 | The `jsessionid` travels in the URL of every internal link |
+| D16 | The logout redirect discloses the backend connection type |
 
 ---
 
-## Restricciones de ejecución (obligatorias)
+## Execution constraints (mandatory)
 
-`parabank.parasoft.com` es una instancia **compartida y pública**. La suite:
+`parabank.parasoft.com` is a **shared, public** instance. The suite:
 
-- **No toca jamás `admin.htm`**, ni `services/bank/cleanDB`, `initializeDB` o
-  `setParameter`. Se asserta que existen y están abiertos (D06) leyendo el WADL;
-  no se invocan.
-- **Crea su propio cliente en cada test** y opera solo sobre sus cuentas.
-- **No asume saldos ni IDs fijos.** El saldo inicial medido durante la exploración
-  fue $515.00, no los $500.00 por defecto: alguien ya había cambiado el parámetro
-  global. Ningún test escribe un importe de apertura.
-- **Corre con 2 workers.** Medido: con 4 la instancia devuelve HTTP 429 de
-  Cloudflare a los 35 segundos. Ver `STRATEGY.md`, «Paralelismo».
+- **Never touches `admin.htm`**, nor `services/bank/cleanDB`, `initializeDB` or
+  `setParameter`. It asserts that they exist and are open (D06) by reading the WADL;
+  it does not invoke them.
+- **Creates its own customer in every test** and operates only on that customer's
+  accounts.
+- **Assumes no fixed balances or IDs.** The opening balance measured during
+  exploration was $515.00, not the default $500.00: someone had already changed the
+  global parameter. No test hardcodes an opening amount.
+- **Runs on 2 workers.** Measured: at 4, the instance returns Cloudflare HTTP 429
+  after 35 seconds. See `STRATEGY.md`, "The Cloudflare rate limit".
 
 ---
 
-## Cobertura deliberadamente fuera de alcance
+## Coverage deliberately out of scope
 
-- **SOAP:** `services/ParaBank?wsdl` no se cubre; la suite es de UI más
-  verificación por REST.
-- **Accesibilidad y cross-browser:** la suite corre en Chromium.
-- **Concurrencia bancaria:** transferencias simultáneas sobre la misma cuenta.
-- **Explotación destructiva de D06:** documentada, jamás ejecutada.
+- **SOAP:** `services/ParaBank?wsdl` is not covered; the suite is UI plus REST
+  verification.
+- **Accessibility and cross-browser:** the suite runs on Chromium.
+- **Banking concurrency:** simultaneous transfers on the same account.
+- **Destructive exploitation of D06:** documented, never executed.

@@ -1,198 +1,192 @@
-# Estrategia — Suite E2E de ParaBank
+# Strategy — ParaBank E2E suite
 
-## 1. Qué se entrega
+## 1. What is delivered
 
-72 tests en 14 archivos, verdes sin reintentos, en ~1.5 min con 2 workers.
-Cubren **24 de los 28 casos** de `TEST_CASES.md`. Cuatro no están, a propósito:
-ver §6.
+72 tests across 14 files, green with no retries, in ~1.5 min on 2 workers.
+They cover **24 of the 28 cases** in `TEST_CASES.md`. Four are deliberately absent:
+see §6.
 
-Además de los casos funcionales, la suite incluye tests con prefijo `D##` que no
-prueban una funcionalidad sino que **fijan un defecto de la aplicación**. Están
-escritos para romperse el día que ParaBank se arregle, de modo que el catálogo de
-§7 no se vuelva mentira en silencio.
+Alongside the functional cases, the suite carries tests prefixed `D##` that do not
+verify a feature but **pin a defect in the application**. They are written to break
+the day ParaBank is fixed, so the catalogue in §7 cannot quietly go stale.
 
-## 2. Arquitectura
+## 2. Architecture
 
-Cuatro capas, cada una con una sola razón de existir.
+Four layers, each with a single reason to exist.
 
 ```
-tests/         qué se verifica  — solo aserciones, sin selectores
+tests/          what is verified — assertions only, no selectors
   ↓
-src/flows/     secuencias reutilizables (registrar, entrar, crear datos)
+src/flows/      reusable sequences (register, sign in, create data)
   ↓
-src/pages/     una pantalla — selectores y acciones
-src/components/ fragmentos compartidos entre pantallas
+src/pages/      one screen — selectors and actions
+src/components/ fragments shared across screens
   ↓
-src/support/   API REST, dinero, fechas
+src/support/    REST API, money, dates
 ```
 
-- **Page objects (12)** — uno por pantalla de ParaBank. Ningún selector vive fuera
-  de `src/pages` o `src/components`.
-- **Flows** — `SessionFlow` (registro, login, logout) y `CustomerFlow` (alta de un
-  cliente con cuentas y movimientos listos para usar). El registro aparece en la
-  mayoría de los tests; está escrito una sola vez.
-- **Fixtures** (`src/fixtures/test.ts`) — inyectan páginas, la sesión ya iniciada
-  (`signedIn`) y el cliente de API. Un test que necesita un usuario logueado con
-  cuentas no escribe una sola línea de setup.
-- **`src/support/api.ts`** — cliente REST. Se usa para **verificar por backend** lo
-  que la UI afirma, no para saltearse la UI.
-- **`src/support/money.ts`** — toda la aritmética de dinero en **centavos enteros**.
-  Nunca se comparan floats: `0.1 + 0.2` no es `0.3`, y en un banco eso importa.
-  Tiene sus propios tests unitarios (`tests/unit`), que no tocan la red.
+- **Page objects (12)** — one per ParaBank screen. No selector lives outside
+  `src/pages` or `src/components`.
+- **Flows** — `SessionFlow` (register, log in, log out) and `CustomerFlow` (a
+  customer with accounts and transactions ready to use). Registration appears in most
+  tests; it is written once.
+- **Fixtures** (`src/fixtures/test.ts`) — inject pages, an already-signed-in session
+  (`signedIn`) and the API client. A test that needs a signed-in customer with
+  accounts writes no setup at all.
+- **`src/support/api.ts`** — REST client. Used to **verify against the backend** what
+  the UI claims, never to skip the UI.
+- **`src/support/money.ts`** — all money arithmetic in **integer cents**. Floats are
+  never compared: `0.1 + 0.2` is not `0.3`, and in a bank that matters. It has its own
+  unit tests (`tests/unit`), which touch no network.
 
-## 3. Aserciones: por qué no alcanza el cartel de confirmación
+## 3. Assertions: why a confirmation banner is not enough
 
-Es una aplicación bancaria. La aserción que vale es **aritmética sobre saldos**:
-leer el saldo antes, ejecutar la operación, leer después y verificar que la
-diferencia es exactamente el importe.
+This is a banking application. The assertion that counts is **arithmetic on
+balances**: read the balance before, run the operation, read after, and verify the
+difference is exactly the amount.
 
-`TC18 + TC19` es el ejemplo: no verifica que aparezca *Transfer Complete*, sino que
-la cuenta origen bajó exactamente el importe, la destino subió exactamente el
-importe, y que el movimiento quedó registrado en ambas. Lo mismo en `TC16`
-(apertura de cuenta: el depósito se mueve **y nada más se mueve**) y `TC24`
-(préstamo aprobado: se descuenta el anticipo y la cuenta nueva queda fondeada).
+`TC18 + TC19` is the example: it does not check that *Transfer Complete* appears, but
+that the source account went down by exactly the amount, the destination went up by
+exactly the amount, and the movement was recorded on both. Same for `TC16` (opening an
+account: the deposit moves **and nothing else moves**) and `TC24` (an approved loan
+takes the down payment and funds the new account).
 
-Un cartel de confirmación prueba que el servidor respondió, no que el dinero se
-movió. Esa distinción es justamente la que hizo caer los tests de Bill Pay (§7,
-D17).
+A confirmation banner proves the server answered, not that money moved. That
+distinction is exactly what brought the Bill Pay tests down (§7, D17).
 
-## 4. Estabilidad sobre una base compartida
+## 4. Stability on a shared database
 
-`parabank.parasoft.com` es una instancia pública, compartida con todo el que la
-use, y se resetea sin aviso.
+`parabank.parasoft.com` is a public instance, shared with everyone who uses it, and
+it resets without warning.
 
-- **Cada test crea su propio cliente**, con username, nombre, apellido y SSN únicos
-  por worker y por milisegundo. Ningún test lee, modifica ni asume la existencia de
-  datos preexistentes.
-- **Ningún ID ni saldo hardcodeado.** Todo lo que un test necesita, lo crea.
-- **Las aserciones negativas se prueban sobre datos propios.** "No se creó nada" no
-  se verifica contando filas globales —otro usuario puede estar creando en paralelo—
-  sino comprobando que *lo que este test habría creado* no existe.
-- **`admin.htm` no se toca jamás.** Ver D06: esa página no pide autenticación y
-  expone borrado e inicialización de la base. Usarla para preparar datos rompería el
-  demo para todos.
-- **Cero `waitForTimeout`.** Toda espera es sobre una condición observable.
+- **Every test creates its own customer**, with a username, first name, last name and
+  SSN unique per worker and per millisecond. No test reads, modifies or assumes
+  pre-existing data.
+- **No hardcoded IDs or balances.** Whatever a test needs, it creates.
+- **Negative assertions are proved against the test's own data.** "Nothing was
+  created" is not verified by counting global rows — another user may be creating in
+  parallel — but by checking that *what this test would have created* does not exist.
+- **`admin.htm` is never touched.** See D06: that page requires no authentication and
+  exposes database wipe and re-initialisation. Using it to set up data would break the
+  demo for everyone.
+- **Zero `waitForTimeout`.** Every wait is on an observable condition.
 
-### El rate limit de Cloudflare
+### The Cloudflare rate limit
 
-Medido: con **4 workers** la suite dispara el rate limiting de Cloudflare que está
-delante del demo, y los tests empiezan a caer por respuestas cortadas. Con **2**
-corre limpia en ~1.5 min. Ese es el default.
+Measured: at **4 workers** the suite trips the Cloudflare rate limiting in front of
+the demo and tests start failing on truncated responses. At **2** it runs clean in
+~1.5 min. That is the default.
 
-Vale aclarar qué **no** es el rate limit, porque fue una hipótesis que se probó y se
-descartó: 20 requests secuenciales y 20 en paralelo a `index.htm` devuelven las 40
-un `200`, sin `429` ni `retry-after`. El límite aparece con la carga sostenida de
-varios navegadores reales, no con volumen de requests simples. Y los fallos de §6
-**no** venían de ahí: se reprodujeron con **un solo worker**, sin concurrencia
-alguna.
+It is worth stating what the rate limit is **not**, because it was a hypothesis that
+was tested and ruled out: 20 sequential and 20 parallel requests to `index.htm` all
+return `200`, with no `429` and no `retry-after`. The limit shows up under the
+sustained load of several real browsers, not under a volume of simple requests. And
+the failures in §6 did **not** come from it: they reproduced on a **single worker**,
+with no concurrency at all.
 
-### Flakiness residual de la aplicación
+### Residual flakiness in the application
 
-En una de las corridas de verificación, un test cayó porque ParaBank **rechazó un
-registro sin renderizar ningún mensaje de error**. La corrida siguiente, idéntica,
-pasó completa. No es un test inestable: es la aplicación rechazando registros de
-forma intermitente. Como el registro es el primer paso de casi todos los tests,
-cualquier test puede caer por esta causa. No se tapó con reintentos; queda
-documentado (D21).
+On one verification run, a test fell because ParaBank **rejected a registration
+without rendering any error message**. The next identical run passed in full. This is
+not an unstable test: it is the application rejecting registrations intermittently.
+Since registration is the first step of almost every test, any test can fall for this
+reason. It was not papered over with retries; it is documented as D21.
 
-## 5. Redundancia
+## 5. Redundancy
 
-- **TC18 y TC19 son un solo test.** TC19 (el movimiento queda registrado) es TC18
-  más una lectura extra sobre la misma transferencia. Separarlos duplicaría una
-  transferencia real en una base compartida sin probar nada nuevo.
-- **TC01 y TC02 se solapan** en la navegación del pie. TC01 verifica el contenido de
-  la home; TC02, que cada destino responde y renderiza lo suyo.
-- **TC14 se partió en tres** (match, SSN incorrecto, formulario vacío) porque cada
-  uno prueba una rama distinta del lookup.
-- **TC10 y TC11 eran casi el mismo test** con distinto mensaje esperado. TC10 salió
-  de la suite por D19; TC11 quedó.
+- **TC18 and TC19 are a single test.** TC19 (the movement is recorded) is TC18 plus
+  one extra read of the same transfer. Splitting them would duplicate a real transfer
+  on a shared database while proving nothing new.
+- **TC01 and TC02 overlap** on footer navigation. TC01 verifies the home content;
+  TC02, that each destination answers and renders its own.
+- **TC14 was split in three** (match, wrong SSN, empty form) because each exercises a
+  different branch of the lookup.
+- **TC10 and TC11 were nearly the same test** with a different expected message. TC10
+  left the suite because of D19; TC11 stayed.
 
-## 6. Los cuatro casos que no están, y por qué
+## 6. The four cases that are missing, and why
 
-`TC08`, `TC10`, `TC20` y `TC22` tenían tests escritos. Fallaban de forma
-reproducible, **con un solo worker**, y fallaban porque la aplicación no hace lo que
-el caso describe. Se retiraron en lugar de aflojar la aserción hasta que pasara: un
-test que afirma menos de lo que el caso pide es peor que ningún test, porque
-aparenta cobertura.
+`TC08`, `TC10`, `TC20` and `TC22` had tests written. They failed reproducibly, **on a
+single worker**, and they failed because the application does not do what the case
+describes. They were withdrawn rather than having their assertions loosened until they
+passed: a test that asserts less than its case demands is worse than no test, because
+it pretends to be coverage.
 
-El hallazgo no se perdió: cada uno quedó como defecto (D17–D20).
+The finding was not lost: each became a defect (D17–D20).
 
-Junto con ellos salieron tres tests de defecto —`D07`, `D13`, `D14`— por la misma
-razón.
+Three defect-pinning tests went with them — `D07`, `D13`, `D14` — for the same reason.
 
-**Advertencia de honestidad:** estos siete tests se retiraron, no se depuraron. Lo
-que sigue en §7 describe el síntoma observado, no una causa raíz confirmada. En
-particular, en D17 no se distinguió entre "la aplicación no debita" y "el helper
-espera la señal equivocada". Confirmarlo es el primer trabajo pendiente.
+**A note on honesty:** these seven tests were withdrawn, not debugged. What follows in
+§7 describes the observed symptom, not a confirmed root cause. In particular, D17 does
+not distinguish between "the application does not debit" and "the helper waits for the
+wrong signal". Confirming that is the first item of outstanding work.
 
-## 7. Defectos encontrados en la aplicación
+## 7. Defects found in the application
 
-Los `D##` con test están fijados por la suite y se romperán si se arreglan.
-Los marcados *(sin test)* salieron de la suite y solo están documentados acá.
+The `D##` entries with a test are pinned by the suite and will break if fixed.
+Those marked *(no test)* left the suite and are only documented here.
 
-### Seguridad
+### Security
 
-| # | Defecto |
+| # | Defect |
 |---|---|
-| **D01** | `GET /services/bank/accounts/{id}`, `/customers/{id}` y `/accounts/{id}/transactions` responden **200 sin autenticación**. Un llamador anónimo lee saldo, tipo de cuenta, nombre, dirección y **SSN** de cualquier cliente, iterando IDs. |
-| **D02** | *Forgot login info* devuelve usuario y **contraseña en texto plano** y, además, **abre la sesión** del visitante. Encadenado con D01 —que entrega los datos personales que el lookup pide— la cadena completa es una toma de control de cuenta partiendo de un número de cuenta. |
-| **D04** | `activity.htm` se sirve **sin sesión** (200 con su shell completo), mientras sus pares sí se rechazan. Hoy no filtra datos porque delega en el AJAX autenticado, pero la guarda del servidor no está. |
-| **D05** | *Update Contact Info* **incrusta la contraseña del cliente en el HTML** de la página. |
-| **D06** | `admin.htm` **no pide autenticación** y expone `action=CLEAN` (borra la base), `action=INIT`, un campo `shutdown` y parámetros globales (`minimumBalance`, `loanProcessorThreshold`). Cualquiera puede vaciar el demo. |
-| **D08** | `services.htm` sirve el *service list* de Apache CXF de **otra demo ajena** (Parasoft Bookstore), inyectando un documento HTML completo dentro del panel, y publica en el cuerpo credenciales WS-Security (`soatest`/`soatest`). |
-| **D11** | Un cliente autenticado puede leer el detalle de cuenta **de otro cliente**. |
-| **D15** | El `jsessionid` viaja **en la URL** de cada link interno. Se filtra por referrer, historial y logs de proxy. |
-| **D16** | El redirect de logout expone el tipo de conexión al backend (`ConnType=JDBC`). Intermitente. |
+| **D01** | `GET /services/bank/accounts/{id}`, `/customers/{id}` and `/accounts/{id}/transactions` answer **200 with no authentication**. An anonymous caller reads the balance, account type, name, address and **SSN** of any customer by iterating IDs. |
+| **D02** | *Forgot login info* returns the username and **password in plain text** and, on top of that, **opens the visitor's session**. Chained with D01 — which hands over the very personal details the lookup asks for — the full chain is an account takeover starting from an account number. |
+| **D04** | `activity.htm` is served **without a session** (200 with its full shell), while its siblings are refused. It leaks no data today because it defers to the authenticated AJAX call, but the server-side guard is simply absent. |
+| **D05** | *Update Contact Info* **embeds the customer's password in the page HTML**. |
+| **D06** | `admin.htm` **requires no authentication** and exposes `action=CLEAN` (wipes the database), `action=INIT`, a `shutdown` field and global parameters (`minimumBalance`, `loanProcessorThreshold`). Anyone can empty the demo. |
+| **D08** | `services.htm` serves the Apache CXF *service list* of **an unrelated demo** (Parasoft Bookstore), injecting a full HTML document inside the panel, and publishes WS-Security credentials (`soatest`/`soatest`) in the body. |
+| **D11** | An authenticated customer can read the account detail **of another customer**. |
+| **D15** | The `jsessionid` travels **in the URL** of every internal link. It leaks through referrers, history and proxy logs. |
+| **D16** | The logout redirect discloses the backend connection type (`ConnType=JDBC`). Intermittent. |
 
-### Funcionales
+### Functional
 
-| # | Defecto |
+| # | Defect |
 |---|---|
-| **D03** | Las páginas privadas sin sesión responden **HTTP 500** con una traza genérica, en vez de redirigir al login. No filtra datos, pero convierte un problema de autorización en un error de servidor, indistinguible de una caída real. |
-| **D09** | El formulario de contacto acepta un **email mal formado** y un **teléfono no numérico**. |
-| **D10** | *Phone #* **no es obligatorio**, ni en el registro ni en *Update Contact Info*, pese a estar rodeado de diez campos que sí lo son. |
-| **D12** | Un importe de transferencia vacío produce un **error interno** en vez del mensaje de validación. |
-| **D07** *(sin test)* | Con el navegador al oeste de UTC, cada transacción se muestra **un día antes** de su fecha real. |
-| **D13** *(sin test)* | Bill Pay permite un **sobregiro**: acepta un pago mayor al saldo y deja la cuenta en negativo. |
-| **D14** *(sin test)* | Un préstamo aprobado acredita la cuenta nueva **sin generar la transacción** correspondiente. |
-| **D17** *(sin test)* | **Bill Pay confirma el pago pero el saldo no se mueve.** Los tres tests que envían un pago real fallaron con el saldo de origen sin cambios tras 30 s (`last observed balance 515 ... unchanged from 515`). El único test de Bill Pay que quedó verde (TC21) es el que **no** envía nada. Ver la advertencia de §6: síntoma observado, causa no confirmada. |
-| **D18** *(sin test)* | Bill Pay con `Account #` y `Verify Account #` distintos no se comporta como el caso esperaba; el saldo tampoco se movió. Probablemente el mismo síntoma que D17. |
-| **D19** *(sin test)* | Un login con **usuario inexistente** —o con la contraseña equivocada— devuelve *"An internal error has occurred and has been logged."* en vez de *"The username and password could not be verified."*. Un error de credenciales se presenta como una falla del servidor. |
-| **D20** *(sin test)* | El registro con contraseñas que no coinciden no muestra el mensaje de validación esperado. El texto real no quedó capturado antes de que se limpiaran los artefactos; hay que reproducirlo. |
-| **D21** *(sin test)* | ParaBank **rechaza registros de forma intermitente sin renderizar ningún mensaje de error**. Observado una vez en dos corridas completas idénticas. Como el registro abre casi todos los tests, es la fuente de inestabilidad más probable de la suite. |
+| **D03** | Private pages without a session answer **HTTP 500** with a generic trace instead of redirecting to the login. It leaks no data, but it turns an authorisation problem into a server error, indistinguishable from a real outage. |
+| **D09** | The contact form accepts a **malformed email** and a **non-numeric phone number**. |
+| **D10** | *Phone #* is **not required**, neither on registration nor on *Update Contact Info*, despite sitting among ten fields that are. |
+| **D12** | An empty transfer amount produces an **internal error** instead of the validation message. |
+| **D07** *(no test)* | With the browser west of UTC, every transaction is displayed **one day earlier** than its real date. |
+| **D13** *(no test)* | Bill Pay allows an **overdraft**: it accepts a payment larger than the balance and drives the account negative. |
+| **D14** *(no test)* | An approved loan credits the new account **without generating the corresponding transaction**. |
+| **D17** *(no test)* | **Bill Pay confirms the payment but the balance does not move.** All three tests that submit a real payment failed with the source balance unchanged after 30 s (`last observed balance 515 ... unchanged from 515`). The only Bill Pay test still green (TC21) is the one that submits **nothing**. See the caveat in §6: observed symptom, unconfirmed cause. |
+| **D18** *(no test)* | Bill Pay with a mismatched `Account #` and `Verify Account #` does not behave as the case expected; the balance did not move either. Most likely the same symptom as D17. |
+| **D19** *(no test)* | A login with an **unknown username** — or with the wrong password — returns *"An internal error has occurred and has been logged."* instead of *"The username and password could not be verified."*. A credential error is presented as a server failure. |
+| **D20** *(no test)* | Registration with mismatched passwords does not show the expected validation message. The actual text was not captured before the artefacts were cleaned; it needs reproducing. |
+| **D21** *(no test)* | ParaBank **rejects registrations intermittently without rendering any error message**. Observed once across two identical full runs. Since registration opens almost every test, it is the most likely source of instability in the suite. |
 
-## 8. Gaps y qué haría primero
+## 8. Gaps and what I would do first
 
-En orden:
+In order:
 
-1. **Confirmar D17.** Es el defecto más grave del catálogo —un pago que se confirma
-   sin mover dinero— y es el único donde no separé bug de la aplicación de un helper
-   mal escrito. Hasta resolverlo, Bill Pay está efectivamente sin cobertura.
-2. **Recuperar TC10.** El login negativo es cobertura central y hoy no existe. Una
-   vez decidido si D19 es el comportamiento aceptado, el caso se reescribe contra lo
-   que la app hace.
-3. **Reproducir D20 y D21** con artefactos retenidos (`--trace on`), para poder
-   describirlos con precisión.
-4. **Concurrencia bancaria:** dos transferencias simultáneas sobre la misma cuenta.
-   Es donde un banco realmente se rompe, y la suite no lo toca.
-5. **Bordes de importes:** cero, negativos, más decimales que centavos, importes
-   enormes.
-6. **SOAP** (`services/ParaBank?wsdl`) — sin cubrir; la suite es UI + REST.
-7. **Accesibilidad y cross-browser** — corre solo en Chromium.
+1. **Confirm D17.** It is the most serious defect in the catalogue — a payment
+   confirmed without moving money — and the only one where application bug was not
+   separated from a badly written helper. Until it is resolved, Bill Pay is
+   effectively uncovered.
+2. **Recover TC10.** Negative login is core coverage and today it does not exist. Once
+   it is decided whether D19 is accepted behaviour, the case is rewritten against what
+   the application does.
+3. **Reproduce D20 and D21** with artefacts retained (`--trace on`), so they can be
+   described precisely.
+4. **Banking concurrency:** two simultaneous transfers on the same account. That is
+   where a bank actually breaks, and the suite does not touch it.
+5. **Amount boundaries:** zero, negative, more decimals than cents, very large amounts.
+6. **SOAP** (`services/ParaBank?wsdl`) — uncovered; the suite is UI plus REST.
+7. **Accessibility and cross-browser** — Chromium only.
 
-## 9. Supuestos y trade-offs
+## 9. Assumptions and trade-offs
 
-- **Chromium únicamente.** Los defectos encontrados son de servidor y de datos, no
-  de motor de render; agregar navegadores multiplicaría el tiempo contra un demo
-  compartido sin cambiar los hallazgos.
-- **2 workers**, elegido por medición y no por costumbre. Prioriza no degradar un
-  servicio público compartido por sobre la velocidad de la suite.
-- **La API se usa para verificar, no para atajar.** Los flujos se ejecutan por UI
-  aunque hacerlos por REST fuera más rápido y estable: lo que se está probando es la
-  interfaz.
-- **Los datos creados no se borran.** ParaBank no expone una operación de borrado de
-  clientes fuera de `admin.htm`, y `admin.htm` está prohibido (D06). Cada corrida
-  deja usuarios nuevos en el demo. Es una deuda consciente, impuesta por la
-  aplicación.
-- **Retries en 1 localmente, 2 en CI**, pero la verificación de entrega se hizo con
-  `--retries=0`: el verde reportado no depende de reintentos.
+- **Chromium only.** The defects found are server- and data-side, not rendering-engine
+  ones; adding browsers would multiply the time spent against a shared demo without
+  changing the findings.
+- **2 workers**, chosen by measurement rather than habit. It prioritises not degrading
+  a shared public service over suite speed.
+- **The API verifies, it does not shortcut.** Flows run through the UI even where REST
+  would be faster and steadier: the interface is what is under test.
+- **Created data is not cleaned up.** ParaBank exposes no customer-deletion operation
+  outside `admin.htm`, and `admin.htm` is off limits (D06). Every run leaves new users
+  on the demo. It is a deliberate debt, imposed by the application.
+- **Retries are 1 locally and 2 in CI**, but delivery was verified with
+  `--retries=0`: the green reported here does not depend on retries.

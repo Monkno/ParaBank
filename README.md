@@ -1,16 +1,16 @@
 # ParaBank — E2E suite (Playwright + TypeScript)
 
-Suite end-to-end contra la aplicación demo de banca online de Parasoft,
+End-to-end suite against Parasoft's demo online banking application,
 **https://parabank.parasoft.com/parabank/index.htm**.
 
-**72 tests, verde sin reintentos, ~1.5 min con 2 workers.**
+**72 tests, green with no retries, ~1.5 min on 2 workers.**
 
-Los casos están en [`TEST_CASES.md`](./TEST_CASES.md); las decisiones de diseño y
-los defectos encontrados en la aplicación, en [`STRATEGY.md`](./STRATEGY.md).
+The cases live in [`TEST_CASES.md`](./TEST_CASES.md); the design decisions and the
+defects found in the application, in [`STRATEGY.md`](./STRATEGY.md).
 
 ---
 
-## Instalación y ejecución
+## Install and run
 
 ```bash
 npm install
@@ -19,34 +19,34 @@ cp .env.example .env
 npm test
 ```
 
-Comandos útiles:
+Useful commands:
 
-| Comando | Qué hace |
+| Command | What it does |
 |---|---|
-| `npm test` | Corre la suite completa |
-| `npm test -- --headed` | Con navegador visible |
-| `npm test -- --grep @auth` | Solo registro y autenticación |
-| `npm test -- --grep @accounts` | Solo operaciones de cuenta |
-| `npm test -- --grep @unit` | Solo los tests de utilidades de dinero (no tocan la red) |
-| `npm run report` | Abre el último reporte HTML |
+| `npm test` | Runs the whole suite |
+| `npm test -- --headed` | With a visible browser |
+| `npm test -- --grep @auth` | Registration and authentication only |
+| `npm test -- --grep @accounts` | Account operations only |
+| `npm test -- --grep @unit` | Money helpers only (no network) |
+| `npm run report` | Opens the last HTML report |
 | `npx tsc --noEmit` | Typecheck |
 
-### Por qué el default son 2 workers
+### Why the default is 2 workers
 
-Medido, no elegido por costumbre. Con 4 workers la suite dispara el rate limiting de
-Cloudflare delante del demo y los tests empiezan a caer por respuestas cortadas. Con
-2 workers corre limpia en ~1.5 min. Se puede cambiar con `WORKERS` en `.env` o
-`--workers=N`, bajo tu responsabilidad.
+Measured, not chosen by habit. At 4 workers the suite trips the Cloudflare rate
+limiting in front of the demo and tests start failing on truncated responses. At 2
+workers it runs clean in ~1.5 min. Override with `WORKERS` in `.env` or `--workers=N`,
+at your own risk.
 
-### Configuración
+### Configuration
 
-`.env.example` documenta las variables. La única obligatoria es `BASE_URL`.
+`.env.example` documents the variables. The only required one is `BASE_URL`.
 
 ---
 
-## Mapeo TC → test
+## TC → test mapping
 
-| TC | Archivo | Test |
+| TC | File | Test |
 |---|---|---|
 | TC01 | `tests/public/site.spec.ts` | the home page carries the login panel, the news list and the service lists |
 | TC02 | `tests/public/site.spec.ts` | every footer destination answers 200 · About Us and Site Map render their documented content |
@@ -72,35 +72,34 @@ Cloudflare delante del demo y los tests empiezan a caer por respuestas cortadas.
 | TC27 | `tests/accounts/profile.spec.ts` | clearing the required fields is rejected and leaves the profile intact |
 | TC28 | `tests/api/rest.spec.ts` | the API reports the same account as the UI |
 
-Los tests con prefijo `D##` no cubren un caso funcional: **fijan un defecto de la
-aplicación** para que se rompan el día que se arregle. Están catalogados en
-`STRATEGY.md`.
+Tests prefixed `D##` do not cover a functional case: they **pin a defect in the
+application** so they break the day it is fixed. They are catalogued in `STRATEGY.md`.
 
-## Casos no automatizados
+## Cases that are not automated
 
-**TC08, TC10, TC20 y TC22 no están en la suite.** No es un olvido: los tests existían,
-fallaban de forma reproducible, y fallaban porque la aplicación está rota, no el test.
-Se retiraron para que el verde signifique algo, y el hallazgo se conserva como defecto
-documentado en `STRATEGY.md` (D17 a D20). El detalle de qué hace la aplicación en cada
-uno está ahí.
+**TC08, TC10, TC20 and TC22 are not in the suite.** That is not an oversight: the
+tests existed, failed reproducibly, and failed because the application is broken, not
+the test. They were withdrawn so that green means something, and the finding is kept
+as a documented defect in `STRATEGY.md` (D17 through D20). What the application
+actually does in each case is recorded there.
 
 ---
 
-## Estructura
+## Structure
 
 ```
 src/
-  core/         BasePage y BaseComponent
+  core/         BasePage and BaseComponent
   components/   LoginPanel, AccountServicesMenu
-  pages/        un page object por pantalla (12)
-  flows/        SessionFlow, CustomerFlow — registro, login y alta de datos
-  fixtures/     test.ts — inyección de páginas, sesión y cliente de API
-  data/         factories con datos únicos por worker
-  support/      api.ts (cliente REST), money.ts (aritmética en centavos), dates.ts
+  pages/        one page object per screen (12)
+  flows/        SessionFlow, CustomerFlow — registration, login, data setup
+  fixtures/     test.ts — injects pages, an open session and the API client
+  data/         factories producing data unique per worker
+  support/      api.ts (REST client), money.ts (integer-cent arithmetic), dates.ts
 tests/
-  public/       sitio público sin sesión
-  auth/         registro, login, lookup
-  accounts/     cuentas, transferencias, bill pay, préstamos, búsqueda, perfil
-  api/          verificación por REST
-  unit/         utilidades de dinero, sin red
+  public/       public site, no session
+  auth/         registration, login, lookup
+  accounts/     accounts, transfers, bill pay, loans, search, profile
+  api/          REST verification
+  unit/         money helpers, no network
 ```
