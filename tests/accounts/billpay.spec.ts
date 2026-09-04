@@ -2,7 +2,7 @@ import { test, expect } from '../../src/fixtures/test';
 import { dollarsToCents } from '../../src/support/money';
 
 test.describe('Bill Pay @accounts', () => {
-    test('TC21 — an empty Bill Pay form reports every field and pays nothing', async ({
+  test('TC21 — an empty Bill Pay form reports every field and pays nothing', async ({
     signedIn,
     billPayPage,
     bankApi,
@@ -34,10 +34,4 @@ test.describe('Bill Pay @accounts', () => {
       'an unsubmitted payment must not move money',
     ).toBe(before);
   });
-
-    /**
-   * A boundary the published cases omit, and a real one for a bank: what happens
-   * when the payment is larger than the balance. Asserted as observed —
-   * ParaBank accepts it and drives the account negative (defect D13).
-   */
-  });
+});

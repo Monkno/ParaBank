@@ -84,6 +84,27 @@ sustained load of several real browsers, not under a volume of simple requests. 
 the failures in §6 did **not** come from it: they reproduced on a **single worker**,
 with no concurrency at all.
 
+**But it does bite, and it is worth knowing how.** Running the suite back to back —
+five full runs inside an hour while auditing — tripped it, and the recovery has two
+properties that are easy to misread:
+
+- **It is path-weighted, not global.** During the ban `GET /parabank/index.htm`
+  answered `200` while `GET /parabank/register.htm` still answered `429`.
+  Registration is the throttled path, and registration is the first step of almost
+  every test — so the suite can look recovered from the outside and still fail
+  wholesale.
+- **`index.htm` returning 200 is not the all-clear.** Probe `register.htm` before
+  concluding the ban has lapsed.
+
+The practical rule: leave several minutes between full runs, and never chase a red
+run with an immediate re-run — the second one fails for a different reason than the
+first, which is the worst way to debug anything.
+
+The suite reports this condition by name rather than as a locator timeout, which is
+what made the diagnosis quick: `src/support/edge.ts` turns the Cloudflare 429 into
+*"Cloudflare is rate limiting this run (Error 1015)... lower WORKERS or wait for the
+ban to lapse"*.
+
 ### Residual flakiness in the application
 
 On one verification run, a test fell because ParaBank **rejected a registration

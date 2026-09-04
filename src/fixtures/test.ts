@@ -140,7 +140,7 @@ export const test = base.extend<Fixtures>({
 
   /**
    * Per-test and never per-worker. Half the cases in section C destroy or mutate
-   * the shared resource — TC16 and TC24 add accounts, TC18/TC20 move money,
+   * the shared resource — TC16 and TC24 add accounts, TC18 moves money,
    * TC26 rewrites the profile — so a worker-scoped customer would make the
    * second test in a worker depend on what the first one did to it, and a rerun
    * of the suite would not be a rerun.
@@ -149,7 +149,7 @@ export const test = base.extend<Fixtures>({
    * ParaBank exposes no per-customer delete. The only disposal it offers is
    * `admin.htm?action=CLEAN` / `services/bank/cleanDB`, which wipe the database
    * for every user of the public demo and are out of bounds for this suite. See
-   * STRATEGY.md, "Test data and disposal".
+   * STRATEGY.md, "Assumptions and trade-offs".
    */
   signedIn: async ({ customerFlow, customerData }, use) => {
     await use(await customerFlow.signUp(customerData));

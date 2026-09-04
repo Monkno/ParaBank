@@ -16,9 +16,9 @@ export default defineConfig({
    * Cloudflare rate limit in front of the shared demo: at 4 workers the suite
    * tripped it 35 seconds in and every subsequent request from this address was
    * answered 429 ("Error 1015 - you are being rate limited") for roughly five
-   * minutes. At 2 workers the same 46 browser tests finish in 74 seconds with no
+   * minutes. At 2 workers the same browser tests finish in about 75 seconds with no
    * throttling at all. More parallelism buys nothing and costs the whole run.
-   * See STRATEGY.md, "Parallelism".
+   * See STRATEGY.md, "The Cloudflare rate limit".
    */
   workers: process.env.WORKERS ? Number(process.env.WORKERS) : 2,
 
@@ -28,7 +28,7 @@ export default defineConfig({
    * admin.htm. Retries absorb that noise without hiding defects, because
    * `trace: 'on-first-retry'` means every retry leaves evidence to read.
    */
-  retries: isCI ? 2 : 1,
+  retries: isCI ? 2 : 0,
   forbidOnly: isCI,
 
   timeout: 120_000,
@@ -54,8 +54,8 @@ export default defineConfig({
      * and renders it with `new Date(ms).getDate()`, i.e. in the *browser's* zone,
      * so any browser west of UTC shows every transaction one day early
      * (defect D07). Pinning UTC makes the date-search cases deterministic on any
-     * developer's machine; `tests/accounts/timezone.spec.ts` overrides it back to
-     * a negative offset to assert the defect itself rather than paper over it.
+     * developer's machine; the defect itself is recorded as D07 in STRATEGY.md rather than
+     * papered over here.
      */
     timezoneId: 'UTC',
     locale: 'en-US',

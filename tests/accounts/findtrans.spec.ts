@@ -73,12 +73,11 @@ test.describe('Find transactions @accounts', () => {
   });
 
   /**
-   * The negative half the case does not mention: a criterion that matches
-   * nothing must return nothing, and a malformed criterion must not search at
-   * all. Without these, "find by amount" would pass just as well if the page
-   * ignored the amount and returned every row.
+   * The negative half the case does not mention: a malformed criterion must not
+   * search at all. Without it, the positive searches above would pass just as
+   * well if the page ignored the criterion and returned every row.
    */
-    test('TC23 — a malformed date is rejected client-side and no search runs', async ({
+  test('TC23 — a malformed date is rejected client-side and no search runs', async ({
     signedIn,
     findTransactionsPage,
     page,
