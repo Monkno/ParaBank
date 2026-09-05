@@ -1,6 +1,11 @@
 name: CI
 
-# Two triggers on purpose, because the system under test is not ours.
+# No schedule. A nightly run against a live third-party site mails a failure
+# every time the site changes, is slow, or is simply having a bad morning, and
+# none of those are our regression. The browser lane runs when a person asks
+# for it.
+#
+# Triggers are deliberate, because the system under test is not ours.
 #
 # `parabank.parasoft.com` is a public demo shared with everyone who uses it, and
 # it sits behind a Cloudflare rate limit that a parallel run can trip. Firing the
@@ -8,17 +13,13 @@ name: CI
 # make our own results depend on whoever else is hitting it at that moment.
 #
 # So: static checks run on every push and pull request — they are fast, hermetic
-# and catch the majority of regressions. The suite itself runs on a schedule and
-# on demand, which is the honest cadence for a test target we do not own.
+# and catch the majority of regressions. The suite itself runs on demand only,
+# which is the honest cadence for a test target we do not own.
 on:
   push:
     branches: [main]
   pull_request:
     branches: [main]
-  schedule:
-    # 06:00 UTC daily — outside European and American working hours, when the
-    # shared demo is quietest.
-    - cron: '0 6 * * *'
   workflow_dispatch:
 
 jobs:
@@ -46,7 +47,7 @@ jobs:
   e2e:
     name: End-to-end suite
     # Only where hitting the shared demo is intended, never on a push.
-    if: github.event_name == 'schedule' || github.event_name == 'workflow_dispatch'
+    if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
     steps:
