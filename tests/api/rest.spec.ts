@@ -5,12 +5,13 @@ import { dollarsToCents } from '../../src/support/money';
  * The REST surface. ParaBank publishes the same JAX-RS resource twice:
  * `/parabank/services/bank/...` with no authentication at all, and
  * `/parabank/services_proxy/bank/...` behind the session. Everything in this
- * file is read-only; the WADL also advertises `cleanDB`, `initializeDB` and
+ * file never changes an existing account; cases using `signedIn` still create
+ * an isolated customer as their precondition. The WADL advertises `cleanDB`, `initializeDB` and
  * `setParameter/{name}/{value}` on the unauthenticated mount, and the suite
  * asserts that they are advertised without ever calling them.
  */
 test.describe('REST API @api', () => {
-  test('TC28 — the API reports the same account as the UI', async ({
+  test('TC28 — the API reports the same account as the UI @mutating', async ({
     signedIn,
     activityPage,
     publicBankApi,
@@ -47,7 +48,7 @@ test.describe('REST API @api', () => {
    * Every assertion below runs against a customer this test created, so the
    * finding is demonstrated without reading anybody else's data.
    */
-  test('D01 — account, transaction and customer data are readable without a session', async ({
+  test('D01 — account, transaction and customer data are readable without a session @mutating @known-defect', async ({
     signedIn,
     publicBankApi,
     request,
@@ -88,7 +89,7 @@ test.describe('REST API @api', () => {
    * rewrites global settings such as `minimumBalance`, and this suite shares the
    * instance with everyone else using the demo.
    */
-  test('D06 — the unauthenticated service advertises destructive operations', async ({ request }) => {
+  test('D06 — the unauthenticated service advertises destructive operations @read-only @known-defect', async ({ request }) => {
     const response = await request.get('/parabank/services/bank?_wadl&_type=xml');
     expect(response.status(), 'GET the WADL').toBe(200);
 

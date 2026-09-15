@@ -1,7 +1,7 @@
 import { test, expect } from '../../src/fixtures/test';
 import { buildCustomer } from '../../src/data/factories';
 
-test.describe('Update contact info @accounts', () => {
+test.describe('Update contact info @accounts @mutating', () => {
   test('TC26 — an updated profile persists and matches the backend record', async ({
     signedIn,
     updateProfilePage,
@@ -113,7 +113,7 @@ test.describe('Update contact info @accounts', () => {
    * is accepted and the empty value is stored — asserted so the inconsistency is
    * visible rather than assumed.
    */
-  test('D10 — the phone number is optional on Update Contact Info', async ({
+  test('D10 — the phone number is optional on Update Contact Info @known-defect', async ({
     signedIn,
     updateProfilePage,
     bankApi,

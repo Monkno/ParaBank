@@ -3,22 +3,31 @@
   "version": "1.0.0",
   "private": true,
   "description": "Playwright + TypeScript E2E suite for parabank.parasoft.com (ParaBank online banking demo)",
+  "engines": {
+    "node": ">=24"
+  },
   "scripts": {
-    "test": "playwright test",
-    "test:headed": "playwright test --headed",
-    "test:public": "playwright test tests/public",
-    "test:auth": "playwright test tests/auth",
-    "test:accounts": "playwright test tests/accounts",
-    "test:api": "playwright test tests/api",
-    "test:unit": "playwright test tests/unit",
+    "test": "npm run test:unit && npm run test:full",
+    "test:full": "playwright test --config=playwright.config.ts",
+    "test:e2e": "playwright test --config=playwright.config.ts --project=functional-read-only --project=functional-mutating",
+    "test:smoke": "playwright test --config=playwright.config.ts --project=functional-read-only --grep @smoke",
+    "test:read-only": "playwright test --config=playwright.config.ts --project=functional-read-only",
+    "test:mutating": "playwright test --config=playwright.config.ts --project=functional-mutating",
+    "test:known-defects": "playwright test --config=playwright.config.ts --project=known-defect",
+    "test:headed": "npm run test:full -- --headed",
+    "test:public": "playwright test --config=playwright.config.ts tests/public",
+    "test:auth": "playwright test --config=playwright.config.ts tests/auth",
+    "test:accounts": "playwright test --config=playwright.config.ts tests/accounts",
+    "test:api": "playwright test --config=playwright.config.ts tests/api",
+    "test:unit": "playwright test --config=playwright.unit.config.ts",
     "report": "playwright show-report",
     "typecheck": "tsc --noEmit",
+    "audit": "npm audit --audit-level=high",
     "install:browsers": "playwright install --with-deps chromium"
   },
   "devDependencies": {
-    "@faker-js/faker": "^9.3.0",
     "@playwright/test": "^1.49.1",
-    "@types/node": "^22.10.2",
+    "@types/node": "^24.0.0",
     "dotenv": "^16.4.7",
     "typescript": "^5.7.2"
   }

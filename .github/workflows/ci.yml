@@ -21,17 +21,44 @@ on:
   pull_request:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      suite:
+        description: Suite to run against the shared public demo
+        required: true
+        default: smoke
+        type: choice
+        options:
+          - smoke
+          - read-only
+          - mutating
+          - known-defects
+          - full
+          - public
+          - auth
+          - accounts
+          - api
+      workers:
+        description: Parallel workers (1-2 only for the shared demo)
+        required: true
+        default: '1'
+        type: choice
+        options:
+          - '1'
+          - '2'
+
+permissions:
+  contents: read
 
 jobs:
   static:
     name: Typecheck
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -39,23 +66,30 @@ jobs:
       - name: Typecheck
         run: npm run typecheck
 
-      # The money helpers are pure functions with no network and no browser, so
+      - name: Dependency audit
+        run: npm run audit
+
+      # Shared helpers and factories are pure, with no network or browser, so
       # they belong in the fast lane rather than behind a scheduled run.
       - name: Unit tests
         run: npm run test:unit
 
   e2e:
     name: End-to-end suite
+    needs: static
     # Only where hitting the shared demo is intended, never on a push.
     if: github.event_name == 'workflow_dispatch'
     runs-on: ubuntu-latest
     timeout-minutes: 30
+    concurrency:
+      group: parabank-shared-e2e
+      cancel-in-progress: false
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6
         with:
-          node-version: 20
+          node-version: 24
           cache: npm
 
       - run: npm ci
@@ -63,16 +97,18 @@ jobs:
       - name: Install Chromium
         run: npx playwright install --with-deps chromium
 
-      - name: Run the suite
-        run: npm test
+      - name: Run ${{ inputs.suite }} suite
+        run: npm run test:${{ inputs.suite }}
         env:
-          # 2 workers, measured. See STRATEGY.md, "The Cloudflare rate limit".
-          WORKERS: 2
+          # 1 is the safe default; 2 is an explicit measured-risk opt-in.
+          WORKERS: ${{ inputs.workers }}
+          BASE_URL: https://parabank.parasoft.com
+          RUN_ID: ${{ github.run_id }}-${{ github.run_attempt }}
 
       - name: Upload the report
         if: ${{ !cancelled() }}
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: playwright-report
+          name: playwright-report-${{ inputs.suite }}-${{ github.run_id }}
           path: playwright-report/
           retention-days: 14

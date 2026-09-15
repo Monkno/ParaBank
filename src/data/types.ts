@@ -19,7 +19,7 @@ export interface CustomerRecord {
   firstName: string;
   lastName: string;
   address: { street: string; city: string; state: string; zipCode: string };
-  phoneNumber: string;
+  phoneNumber: string | null;
   ssn: string;
 }
 

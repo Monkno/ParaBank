@@ -15,7 +15,7 @@ import { dollarsToCents } from '../../src/support/money';
  * the case is about search, not about how the row came to exist. Nothing here can
  * match another customer's data: the account was created by this test.
  */
-test.describe('Find transactions @accounts', () => {
+test.describe('Find transactions @accounts @mutating', () => {
   test('TC23 — every search criterion finds the transaction the test created', async ({
     signedIn,
     openAccountPage,

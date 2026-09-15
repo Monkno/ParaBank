@@ -14,7 +14,7 @@ import { test, expect } from '../../src/fixtures/test';
  * clean path and no test ever reuses a URL it read off the page: a hard-coded
  * `jsessionid` would bind the whole suite to one dead session.
  */
-test.describe('Session hygiene @public', () => {
+test.describe('Session hygiene @public @read-only @known-defect', () => {
   test('D15 — internal links carry the session id in the URL', async ({ page }) => {
     // A brand-new context, so this is the first request of a fresh session and
     // the server has not yet learned that the client accepts cookies.

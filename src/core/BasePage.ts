@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page } from '@playwright/test';
 import { settleEdge } from '../support/edge';
+import { EnvironmentUnavailableError } from '../support/errors';
 
 /**
  * Common ground for every page object. A subclass declares only `path` and
@@ -38,7 +39,16 @@ export abstract class BasePage {
 
   async expectLoaded(): Promise<void> {
     await this.waitForHandlersBound();
-    await expect(this.uniqueMarker()).toBeVisible();
+    const marker = this.uniqueMarker();
+    const errorHeading = this.page.locator('#rightPanel h1.title', { hasText: /^Error!$/ });
+    await expect(marker.or(errorHeading).filter({ visible: true })).toHaveCount(1);
+    if (await errorHeading.isVisible()) {
+      const detail = (await this.page.locator('#rightPanel').innerText()).trim().slice(0, 300);
+      throw new EnvironmentUnavailableError(
+        `GET ${this.path} returned ParaBank's generic internal-error page: ${JSON.stringify(detail)}`,
+      );
+    }
+    await expect(marker).toBeVisible();
   }
 
   /**

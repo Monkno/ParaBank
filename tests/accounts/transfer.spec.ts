@@ -7,7 +7,7 @@ import { dollarsToCents, formatCents, parseUsd } from '../../src/support/money';
  * them separately would cost a second customer, a second account and a second
  * transfer on a shared, rate-limited demo and would prove nothing extra.
  */
-test.describe('Transfer funds @accounts', () => {
+test.describe('Transfer funds @accounts @mutating', () => {
   const AMOUNT = '37.42';
   const AMOUNT_CENTS = 3742;
 
@@ -88,7 +88,7 @@ test.describe('Transfer funds @accounts', () => {
    *
    * Asserted as observed, and recorded as defect D12.
    */
-  test('D12 — an empty transfer amount shows an internal error instead of the validation message', async ({
+  test('D12 — an empty transfer amount shows an internal error instead of the validation message @known-defect', async ({
     signedIn,
     openAccountPage,
     transferPage,

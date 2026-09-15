@@ -1,5 +1,7 @@
 import type { APIRequestContext } from '@playwright/test';
 import type { Account, CustomerRecord, Transaction } from '../data/types';
+import { parseAccount, parseAccounts, parseCustomer, parseTransactions } from './contracts';
+import { EnvironmentUnavailableError, RateLimitError, SettlementTimeoutError } from './errors';
 
 /**
  * ParaBank publishes the *same* JAX-RS resource twice, and the difference
@@ -28,7 +30,7 @@ export class BankApi {
     private readonly basePath: string = AUTHENTICATED_BANK_API,
   ) {}
 
-  private async getJson<T>(path: string): Promise<T> {
+  private async getJson(path: string): Promise<unknown> {
     const url = `${this.basePath}${path}`;
 
     // The shared demo occasionally answers a 200 with an empty or truncated body
@@ -40,13 +42,27 @@ export class BankApi {
     for (let attempt = 0; attempt < 3; attempt += 1) {
       const response = await this.request.get(url, { headers: { Accept: 'application/json' } });
       if (!response.ok()) {
-        throw new Error(`GET ${url} returned HTTP ${response.status()}: ${await response.text()}`);
+        const status = response.status();
+        const body = await response.text();
+        const detail = JSON.stringify(body.slice(0, 240));
+        if (status === 429 || /Error 1015|being rate limited/i.test(body)) {
+          throw new RateLimitError(
+            `GET ${url} returned HTTP ${status}: the shared ParaBank demo is rate limiting this run. ` +
+              'Wait before retrying and do not increase WORKERS.',
+          );
+        }
+        if ([502, 503, 504].includes(status)) {
+          throw new EnvironmentUnavailableError(`GET ${url} returned HTTP ${status}: ${detail}`);
+        }
+        throw new Error(`GET ${url} returned HTTP ${status}: ${detail}`);
       }
       lastBody = await response.text();
       try {
-        return JSON.parse(lastBody) as T;
+        return JSON.parse(lastBody) as unknown;
       } catch {
-        await new Promise((resolve) => setTimeout(resolve, 400));
+        if (attempt < 2) {
+          await new Promise((resolve) => setTimeout(resolve, 400));
+        }
       }
     }
     throw new Error(`GET ${url} returned HTTP 200 with a non-JSON body three times: ${JSON.stringify(lastBody.slice(0, 120))}`);
@@ -61,19 +77,23 @@ export class BankApi {
   }
 
   async getAccount(accountId: number): Promise<Account> {
-    return this.getJson<Account>(`/accounts/${accountId}`);
+    const path = `/accounts/${accountId}`;
+    return parseAccount(await this.getJson(path), `${this.basePath}${path}`);
   }
 
   async listAccounts(customerId: number): Promise<Account[]> {
-    return this.getJson<Account[]>(`/customers/${customerId}/accounts`);
+    const path = `/customers/${customerId}/accounts`;
+    return parseAccounts(await this.getJson(path), `${this.basePath}${path}`);
   }
 
   async getCustomer(customerId: number): Promise<CustomerRecord> {
-    return this.getJson<CustomerRecord>(`/customers/${customerId}`);
+    const path = `/customers/${customerId}`;
+    return parseCustomer(await this.getJson(path), `${this.basePath}${path}`);
   }
 
   async listTransactions(accountId: number): Promise<Transaction[]> {
-    return this.getJson<Transaction[]>(`/accounts/${accountId}/transactions`);
+    const path = `/accounts/${accountId}/transactions`;
+    return parseTransactions(await this.getJson(path), `${this.basePath}${path}`);
   }
 
   /**
@@ -106,8 +126,6 @@ export class BankApi {
  * the opposite of a fixed sleep — there is no sleep, and a genuinely stuck
  * transaction fails as a named timeout, not a silent zero.
  */
-class SettleTimeout extends Error {}
-
 export interface SettleOptions {
   timeoutMs?: number;
   intervalMs?: number;
@@ -127,12 +145,12 @@ async function poll<T>(
         return value;
       }
       if (Date.now() >= deadline) {
-        throw new SettleTimeout(
+        throw new SettlementTimeoutError(
           `Timed out after ${timeoutMs}ms waiting for the backend to settle; last observed ${describe(value)}`,
         );
       }
     } catch (error) {
-      if (error instanceof SettleTimeout) {
+      if (error instanceof SettlementTimeoutError) {
         throw error;
       }
       // A transient read failure is not the answer yet; keep polling. If it is

@@ -2,7 +2,7 @@ import { test, expect } from '../../src/fixtures/test';
 import { uniqueTag } from '../../src/data/factories';
 
 test.describe('Contact Us @public', () => {
-  test('TC03 — a completed enquiry is acknowledged by name', async ({ contactPage, page }) => {
+  test('TC03 — a completed enquiry is acknowledged by name @mutating', async ({ contactPage, page }) => {
     // Tagged so a human reading the shared demo's mailbox can tell this apart
     // from a real enquiry.
     const tag = uniqueTag();
@@ -27,7 +27,7 @@ test.describe('Contact Us @public', () => {
     await expect(page.locator('#contactForm')).toHaveCount(0);
   });
 
-  test('TC04 — an empty enquiry reports every required field and is not sent', async ({
+  test('TC04 — an empty enquiry reports every required field and is not sent @mutating', async ({
     contactPage,
     page,
   }) => {
@@ -55,7 +55,7 @@ test.describe('Contact Us @public', () => {
    * address and a phone number that is a word, and acknowledges both. Asserted
    * as observed behaviour (defect D09), so a future validation fix is noticed.
    */
-  test('D09 — the contact form accepts a malformed email and a non-numeric phone', async ({
+  test('D09 — the contact form accepts a malformed email and a non-numeric phone @mutating @known-defect', async ({
     contactPage,
   }) => {
     const name = `Qa Suite ${uniqueTag()}`;

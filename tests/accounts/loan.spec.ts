@@ -9,7 +9,7 @@ import { dollarsToCents, formatCents } from '../../src/support/money';
  * would mean a body full of `if (approved)`, which is two tests wearing a
  * costume.
  */
-test.describe('Request loan @accounts', () => {
+test.describe('Request loan @accounts @mutating', () => {
   test('TC24 — an approved loan takes the down payment and opens a funded LOAN account', async ({
     signedIn,
     requestLoanPage,

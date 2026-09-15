@@ -8,7 +8,7 @@ import { dollarsToCents } from '../../src/support/money';
  * has thousands of customers in it and a fixed fixture would collide.
  */
 test.describe('Registration @auth', () => {
-  test('TC05 — a new customer is created, signed in, and stored as it was typed', async ({
+  test('TC05 — a new customer is created, signed in, and stored as it was typed @mutating', async ({
     customerFlow,
     customerData,
     overviewPage,
@@ -48,7 +48,7 @@ test.describe('Registration @auth', () => {
     expect(rows[0].balance, 'overview balance vs API balance').toBe(dollarsToCents(accounts[0].balance));
   });
 
-  test('TC06 — a duplicate username is rejected and the original customer is untouched', async ({
+  test('TC06 — a duplicate username is rejected and the original customer is untouched @mutating', async ({
     customerFlow,
     customerData,
     session,
@@ -91,7 +91,7 @@ test.describe('Registration @auth', () => {
    * although the field sits among ten that are all mandatory. Following the
    * application rather than the case text — see STRATEGY.md, D10.
    */
-  test('TC07 — an empty registration form reports every required field', async ({ registerPage }) => {
+  test('TC07 — an empty registration form reports every required field @read-only', async ({ registerPage }) => {
     await registerPage.open();
     await registerPage.submit();
 
