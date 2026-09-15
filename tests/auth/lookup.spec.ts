@@ -10,7 +10,7 @@ import { buildCustomer } from '../../src/data/factories';
  * not do it at all is recorded as defect D02.
  */
 test.describe('Forgot login info @auth', () => {
-  test('TC14 — matching personal details return the customer\'s credentials', async ({
+  test('TC14 — matching personal details return the customer\'s credentials @mutating', async ({
     signedOut,
     lookupPage,
     session,
@@ -42,7 +42,7 @@ test.describe('Forgot login info @auth', () => {
    * everything else is right, so the only thing that can cause the refusal is
    * that field.
    */
-  test('TC14 — a wrong SSN is not enough to recover a login', async ({
+  test('TC14 — a wrong SSN is not enough to recover a login @mutating', async ({
     signedOut,
     lookupPage,
     page,
@@ -58,7 +58,7 @@ test.describe('Forgot login info @auth', () => {
     await session.expectSignedOut();
   });
 
-  test('TC14 — an empty lookup reports every required field', async ({ lookupPage }) => {
+  test('TC14 — an empty lookup reports every required field @read-only', async ({ lookupPage }) => {
     await lookupPage.open();
     await lookupPage.submitButton.click();
 
@@ -87,7 +87,7 @@ test.describe('Forgot login info @auth', () => {
    * the page, and is then sent in a URL, where it lands in access logs and the
    * Referer header. Asserted so that a fix is noticed.
    */
-  test('D05 — Update Contact Info inlines the customer password into the page source', async ({
+  test('D05 — Update Contact Info inlines the customer password into the page source @mutating @known-defect', async ({
     signedIn,
     updateProfilePage,
     page,

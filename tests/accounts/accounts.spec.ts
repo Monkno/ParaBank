@@ -1,7 +1,7 @@
 import { test, expect } from '../../src/fixtures/test';
 import { dollarsToCents, formatCents } from '../../src/support/money';
 
-test.describe('Accounts @accounts', () => {
+test.describe('Accounts @accounts @mutating', () => {
   /**
    * A single-account customer would make this case pass on a table with one row
    * and a Total that is a copy of it. A second account is opened first so the
@@ -69,9 +69,13 @@ test.describe('Accounts @accounts', () => {
 
       // The opening deposit is drained from a queue; wait for it to land rather
       // than racing it with an immediate read.
-      const sourceAfter = dollarsToCents(
-        await settle.balanceChangedFrom(signedIn.primaryAccountId, sourceBeforeDollars),
-      );
+      const [sourceAfterDollars] = await Promise.all([
+        settle.balanceChangedFrom(signedIn.primaryAccountId, sourceBeforeDollars),
+        // Both legs are asynchronous. A changed source balance does not prove
+        // the newly created account has already received its deposit.
+        settle.balanceChangedFrom(newAccountId, 0),
+      ]);
+      const sourceAfter = dollarsToCents(sourceAfterDollars);
       const created = await bankApi.getAccount(newAccountId);
 
       const deposit = sourceBefore - sourceAfter;

@@ -18,6 +18,9 @@ import { UpdateProfilePage } from '../pages/UpdateProfilePage';
 import type { Customer } from '../data/types';
 
 export interface Fixtures {
+  /** Internal automatic fixture that records traceability metadata on failures. */
+  _runMetadata: void;
+
   /**
    * The bank's REST API as a signed-in user sees it, sharing the browser
    * context's `JSESSIONID` through `page.request`. This is the backend side of
@@ -56,7 +59,7 @@ export interface Fixtures {
   customerFlow: CustomerFlow;
   session: SessionFlow;
 
-  /** A fresh, unregistered customer. Unique per worker and per millisecond. */
+  /** A fresh, unregistered customer. Unique per run, worker and sequence. */
   customerData: Customer;
 
   /**
@@ -100,10 +103,123 @@ export interface Fixtures {
  */
 const IMAGE_URL = /\.(gif|jpe?g|png|ico|svg|webp)(;|\?|$)/i;
 
+const SENSITIVE_QUERY_KEYS = /password|passwd|pwd|token|secret|ssn/i;
+
+function safeUrl(raw: string): string {
+  try {
+    const url = new URL(raw);
+    if (url.username) {
+      url.username = '[redacted]';
+    }
+    if (url.password) {
+      url.password = '[redacted]';
+    }
+    url.pathname = url.pathname.replace(/;jsessionid=[^/?;]+/gi, ';jsessionid=[redacted]');
+    url.pathname = url.pathname.replace(
+      /(\/login\/)[^/]+\/[^/?;]+/gi,
+      '$1[redacted]/[redacted]',
+    );
+    for (const key of url.searchParams.keys()) {
+      if (SENSITIVE_QUERY_KEYS.test(key)) {
+        url.searchParams.set(key, '[redacted]');
+      }
+    }
+    return url.toString();
+  } catch {
+    return raw.replace(/;jsessionid=[^/?;]+/gi, ';jsessionid=[redacted]');
+  }
+}
+
+function safeText(raw: string): string {
+  let value = raw
+    .replace(/;jsessionid=[^\s/?;]+/gi, ';jsessionid=[redacted]')
+    .replace(/\b\d{3}-\d{2}-\d{4}\b/g, '[redacted-ssn]');
+  const configuredPassword = process.env.CUSTOMER_PASSWORD ?? 'Passw0rd1';
+  if (configuredPassword) {
+    value = value.split(configuredPassword).join('[redacted-password]');
+  }
+  return value;
+}
+
+function failed(status: string | undefined, expectedStatus: string): boolean {
+  return status !== undefined && status !== expectedStatus;
+}
+
 export const test = base.extend<Fixtures>({
-  page: async ({ page }, use) => {
+  _runMetadata: [
+    async ({}, use, testInfo) => {
+      await use();
+      if (failed(testInfo.status, testInfo.expectedStatus)) {
+        await testInfo.attach('run-metadata.json', {
+          body: Buffer.from(
+            JSON.stringify(
+              {
+                runId: process.env.RUN_ID ?? null,
+                project: testInfo.project.name,
+                workerIndex: testInfo.workerIndex,
+                retry: testInfo.retry,
+                title: testInfo.title,
+              },
+              null,
+              2,
+            ),
+          ),
+          contentType: 'application/json',
+        });
+      }
+    },
+    { auto: true },
+  ],
+
+  page: async ({ page }, use, testInfo) => {
+    const diagnostics: Array<Record<string, unknown>> = [];
+    const remember = (entry: Record<string, unknown>) => {
+      diagnostics.push(entry);
+      if (diagnostics.length > 50) {
+        diagnostics.shift();
+      }
+    };
+
+    page.on('console', (message) => {
+      if (message.type() === 'error' || message.type() === 'warning') {
+        remember({
+          kind: 'console',
+          level: message.type(),
+          text: safeText(message.text()).slice(0, 500),
+        });
+      }
+    });
+    page.on('requestfailed', (request) => {
+      if (IMAGE_URL.test(request.url())) {
+        return;
+      }
+      remember({
+        kind: 'requestfailed',
+        method: request.method(),
+        url: safeUrl(request.url()),
+        error: request.failure()?.errorText,
+      });
+    });
+    page.on('response', (response) => {
+      if (response.status() >= 400) {
+        remember({
+          kind: 'http',
+          method: response.request().method(),
+          status: response.status(),
+          url: safeUrl(response.url()),
+        });
+      }
+    });
+
     await page.route(IMAGE_URL, (route) => route.abort());
     await use(page);
+
+    if (failed(testInfo.status, testInfo.expectedStatus) && diagnostics.length > 0) {
+      await testInfo.attach('browser-diagnostics.json', {
+        body: Buffer.from(JSON.stringify(diagnostics, null, 2)),
+        contentType: 'application/json',
+      });
+    }
   },
 
   bankApi: async ({ page }, use) => {
@@ -134,8 +250,26 @@ export const test = base.extend<Fixtures>({
   customerFlow: async ({ page, bankApi }, use) => use(new CustomerFlow(page, bankApi)),
   session: async ({ page }, use) => use(new SessionFlow(page)),
 
-  customerData: async ({}, use) => {
-    await use(buildCustomer());
+  customerData: async ({}, use, testInfo) => {
+    const customer = buildCustomer();
+    await use(customer);
+    if (failed(testInfo.status, testInfo.expectedStatus)) {
+      await testInfo.attach('test-customer.json', {
+        body: Buffer.from(
+          JSON.stringify(
+            {
+              username: customer.username,
+              firstName: customer.firstName,
+              lastName: customer.lastName,
+              runId: process.env.RUN_ID ?? null,
+            },
+            null,
+            2,
+          ),
+        ),
+        contentType: 'application/json',
+      });
+    }
   },
 
   /**

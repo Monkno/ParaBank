@@ -3,7 +3,7 @@ import { buildCustomer } from '../../src/data/factories';
 import { dollarsToCents } from '../../src/support/money';
 
 test.describe('Authentication @auth', () => {
-  test('TC09 — valid credentials open the private area', async ({
+  test('TC09 — valid credentials open the private area @mutating', async ({
     signedOut,
     session,
     overviewPage,
@@ -46,7 +46,7 @@ test.describe('Authentication @auth', () => {
    * the `signedOut` fixture in one signature and make the cheap half pay for a
    * registration it does not use.
    */
-      test('TC11 — an empty login form asks for both fields', async ({ homePage, session, page }) => {
+      test('TC11 — an empty login form asks for both fields @read-only', async ({ homePage, session, page }) => {
     await homePage.open();
     await homePage.login.signIn('', '');
 
@@ -56,7 +56,7 @@ test.describe('Authentication @auth', () => {
     await session.expectSignedOut();
   });
 
-  test('TC12 — logging out ends the session and re-protects the private area', async ({
+  test('TC12 — logging out ends the session and re-protects the private area @mutating', async ({
     signedIn,
     session,
     overviewPage,
@@ -91,7 +91,7 @@ test.describe('Authentication @auth', () => {
    * Each page object is used for its `path`, so a URL change is a compile error
    * rather than a stale literal in a test.
    */
-  test('TC13 — private pages are refused without a session', async ({
+  test('TC13 — private pages are refused without a session @read-only', async ({
     overviewPage,
     transferPage,
     billPayPage,
@@ -123,7 +123,7 @@ test.describe('Authentication @auth', () => {
    * the other three is simply absent here, and the page is one change away from
    * leaking. The account under test is one this test created.
    */
-  test('D04 — activity.htm is served without a session while its siblings are refused', async ({
+  test('D04 — activity.htm is served without a session while its siblings are refused @mutating @known-defect', async ({
     signedOut,
     activityPage,
     page,
@@ -156,7 +156,7 @@ test.describe('Authentication @auth', () => {
    * The assertion is written as the application behaves, so that the day
    * ownership is enforced this test fails and the defect is closed.
    */
-  test('D11 — a signed-in customer can read the account detail of another customer', async ({
+  test('D11 — a signed-in customer can read the account detail of another customer @mutating @known-defect', async ({
     customerFlow,
     customerData,
     session,

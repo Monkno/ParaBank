@@ -2,9 +2,10 @@
 
 ## 1. What is delivered
 
-72 tests across 14 files, green with no retries, in ~1.5 min on 2 workers.
-They cover **24 of the 28 cases** in `TEST_CASES.md`. Four are deliberately absent:
-see §6.
+The browser/API layer is backed by parameterised unit coverage for shared money
+and date helpers. Use `npx playwright test --list` for the current inventory
+rather than maintaining a brittle headline count. The scenarios cover **24 of
+the 28 cases** in `TEST_CASES.md`. Four are deliberately absent: see §6.
 
 Alongside the functional cases, the suite carries tests prefixed `D##` that do not
 verify a feature but **pin a defect in the application**. They are written to break
@@ -15,7 +16,7 @@ the day ParaBank is fixed, so the catalogue in §7 cannot quietly go stale.
 Four layers, each with a single reason to exist.
 
 ```
-tests/          what is verified — assertions only, no selectors
+tests/          scenarios, assertions and one-off diagnostic probes
   ↓
 src/flows/      reusable sequences (register, sign in, create data)
   ↓
@@ -25,11 +26,12 @@ src/components/ fragments shared across screens
 src/support/    REST API, money, dates
 ```
 
-- **Page objects (12)** — one per ParaBank screen. No selector lives outside
-  `src/pages` or `src/components`.
+- **Page objects (12)** — one per reusable ParaBank screen. Reused selectors live
+  in `src/pages` or `src/components`; one-off diagnostic probes stay beside the
+  assertion that gives them meaning.
 - **Flows** — `SessionFlow` (register, log in, log out) and `CustomerFlow` (a
-  customer with accounts and transactions ready to use). Registration appears in most
-  tests; it is written once.
+  newly registered customer with its initial account). Registration appears in
+  most tests; it is written once.
 - **Fixtures** (`src/fixtures/test.ts`) — inject pages, an already-signed-in session
   (`signedIn`) and the API client. A test that needs a signed-in customer with
   accounts writes no setup at all.
@@ -60,7 +62,7 @@ distinction is exactly what brought the Bill Pay tests down (§7, D17).
 it resets without warning.
 
 - **Every test creates its own customer**, with a username, first name, last name and
-  SSN unique per worker and per millisecond. No test reads, modifies or assumes
+  SSN unique per run, worker and sequence. No test reads, modifies or assumes
   pre-existing data.
 - **No hardcoded IDs or balances.** Whatever a test needs, it creates.
 - **Negative assertions are proved against the test's own data.** "Nothing was
@@ -70,12 +72,20 @@ it resets without warning.
   exposes database wipe and re-initialisation. Using it to set up data would break the
   demo for everyone.
 - **Zero `waitForTimeout`.** Every wait is on an observable condition.
+- **Every browser run starts with a preflight** against both `index.htm` and the
+  path that is actually throttled, `register.htm`. An outage, malformed shell or
+  rate limit aborts before browsers create partial data.
+- **Every write carries a run identifier.** CI injects `RUN_ID`; local runs use
+  a timestamp. Failure artefacts record that identifier without passwords or
+  session IDs.
 
 ### The Cloudflare rate limit
 
 Measured: at **4 workers** the suite trips the Cloudflare rate limiting in front of
-the demo and tests start failing on truncated responses. At **2** it runs clean in
-~1.5 min. That is the default.
+the demo and tests start failing on truncated responses. **2 workers** have both
+completed successfully and tripped the limit on different full runs, so **1 worker**
+is the safe default. Two remains available only as an explicit choice for a narrow
+lane.
 
 It is worth stating what the rate limit is **not**, because it was a hypothesis that
 was tested and ruled out: 20 sequential and 20 parallel requests to `index.htm` all
@@ -100,10 +110,9 @@ The practical rule: leave several minutes between full runs, and never chase a r
 run with an immediate re-run — the second one fails for a different reason than the
 first, which is the worst way to debug anything.
 
-The suite reports this condition by name rather than as a locator timeout, which is
-what made the diagnosis quick: `src/support/edge.ts` turns the Cloudflare 429 into
-*"Cloudflare is rate limiting this run (Error 1015)... lower WORKERS or wait for the
-ban to lapse"*.
+The suite reports this condition by name rather than as a locator timeout. The
+preflight and browser/API helpers classify rate limits, environment outages,
+contract mismatches and settlement timeouts separately.
 
 ### Residual flakiness in the application
 
@@ -202,12 +211,16 @@ In order:
 - **Chromium only.** The defects found are server- and data-side, not rendering-engine
   ones; adding browsers would multiply the time spent against a shared demo without
   changing the findings.
-- **2 workers**, chosen by measurement rather than habit. It prioritises not degrading
-  a shared public service over suite speed.
+- **1 worker by default, 2 maximum**, chosen from observed rate-limit behaviour. It
+  prioritises not degrading a shared public service over suite speed.
 - **The API verifies, it does not shortcut.** Flows run through the UI even where REST
   would be faster and steadier: the interface is what is under test.
 - **Created data is not cleaned up.** ParaBank exposes no customer-deletion operation
   outside `admin.htm`, and `admin.htm` is off limits (D06). Every run leaves new users
   on the demo. It is a deliberate debt, imposed by the application.
-- **Retries are 1 locally and 2 in CI**, but delivery was verified with
-  `--retries=0`: the green reported here does not depend on retries.
+- **Retries follow side effects, not folders.** Read-only functional checks may
+  retry once in CI. Mutating checks and pinned defects never retry, so a flaky
+  assertion cannot duplicate customers, transfers or enquiries. Hermetic unit
+  tests always use zero retries.
+- **Known defects are a separate lane.** They remain executable evidence without
+  making the functional regression signal depend on whether the demo was fixed.

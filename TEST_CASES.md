@@ -69,7 +69,7 @@ the form stays on screen and the enquiry is not sent.
 ## B. Registration and authentication
 
 > Every test registers its own user, with a username, first name, last name and SSN
-> unique per worker and per millisecond. A pre-existing user is never reused or
+> unique per run, worker and sequence. A pre-existing user is never reused or
 > modified: the database is shared.
 
 ### TC05 — Registering a new user ✅ 🔎
@@ -381,8 +381,9 @@ defect it documents in `STRATEGY.md`.
 - **Assumes no fixed balances or IDs.** The opening balance measured during
   exploration was $515.00, not the default $500.00: someone had already changed the
   global parameter. No test hardcodes an opening amount.
-- **Runs on 2 workers.** Measured: at 4, the instance returns Cloudflare HTTP 429
-  after 35 seconds. See `STRATEGY.md`, "The Cloudflare rate limit".
+- **Runs on 1 worker by default, 2 maximum.** The shared instance has returned
+  Cloudflare HTTP 429 during higher-throughput runs. See `STRATEGY.md`, "The
+  Cloudflare rate limit".
 
 ---
 

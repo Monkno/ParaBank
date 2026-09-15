@@ -18,7 +18,7 @@ export class SessionFlow {
   private readonly overviewPage: OverviewPage;
   private readonly menu: AccountServicesMenu;
 
-  constructor(private readonly page: Page) {
+  constructor(page: Page) {
     this.homePage = new HomePage(page);
     this.overviewPage = new OverviewPage(page);
     this.menu = new AccountServicesMenu(page);
@@ -49,24 +49,5 @@ export class SessionFlow {
   async expectSignedOut(): Promise<void> {
     await expect(this.homePage.login.submitButton).toBeVisible();
     await expect(this.menu.logOutLink).toHaveCount(0);
-  }
-
-  /**
-   * Asserts that a login attempt was *refused*: the error message shown, and no
-   * session opened. The message names defect D17 because that is the one thing
-   * that turns this assertion red without the test being wrong — when the shared
-   * demo falls into its intermittent authentication-bypass state, a rejected
-   * login is answered with Accounts Overview instead of the error, and this
-   * points a reader straight at the cause instead of a locator timeout.
-   */
-  async expectLoginRejected(): Promise<void> {
-    await expect(
-      this.menu.logOutLink,
-      'a bad login opened a session — the server is in the D17 authentication-bypass state',
-    ).toHaveCount(0);
-    await expect(this.page.locator('#rightPanel p.error')).toHaveText(
-      'The username and password could not be verified.',
-    );
-    await expect(this.homePage.login.submitButton).toBeVisible();
   }
 }

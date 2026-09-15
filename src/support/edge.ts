@@ -1,4 +1,5 @@
 import type { Page, Response } from '@playwright/test';
+import { EnvironmentUnavailableError, RateLimitError } from './errors';
 
 /**
  * Cloudflare sits in front of the shared demo and sometimes answers a navigation
@@ -37,7 +38,7 @@ const CHALLENGE_TIMEOUT_MS = 60_000;
  */
 export async function settleEdge(page: Page, path: string, response: Response | null): Promise<number> {
   if (!response) {
-    throw new Error(`GET ${path} produced no response`);
+    throw new EnvironmentUnavailableError(`GET ${path} produced no response`);
   }
 
   const status = response.status();
@@ -48,7 +49,7 @@ export async function settleEdge(page: Page, path: string, response: Response | 
   const body = await page.content().catch(() => '');
 
   if (/Error 1015|being rate limited/i.test(body)) {
-    throw new Error(
+    throw new RateLimitError(
       `GET ${path} returned HTTP ${status}: Cloudflare is rate limiting this run ` +
         `("Error 1015 — you are being rate limited"). The shared demo throttles by source ` +
         `address; lower WORKERS or wait for the ban to lapse before re-running.`,
@@ -63,7 +64,7 @@ export async function settleEdge(page: Page, path: string, response: Response | 
       .catch(() => false);
 
     if (!cleared) {
-      throw new Error(
+      throw new EnvironmentUnavailableError(
         `GET ${path} returned HTTP ${status}: Cloudflare's bot challenge did not clear ` +
           `within ${CHALLENGE_TIMEOUT_MS / 1000}s.`,
       );

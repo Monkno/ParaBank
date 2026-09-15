@@ -3,7 +3,9 @@
 End-to-end suite against Parasoft's demo online banking application,
 **https://parabank.parasoft.com/parabank/index.htm**.
 
-**72 tests, green with no retries, ~1.5 min on 2 workers.**
+The suite combines browser/API scenarios with focused, parameterised unit
+coverage for the shared money and date helpers. The current inventory is always
+available with `npx playwright test --list`.
 
 The cases live in [`TEST_CASES.md`](./TEST_CASES.md); the design decisions and the
 defects found in the application, in [`STRATEGY.md`](./STRATEGY.md).
@@ -13,7 +15,8 @@ defects found in the application, in [`STRATEGY.md`](./STRATEGY.md).
 ## Install and run
 
 ```bash
-npm install
+node --version # Node.js 24 or newer
+npm ci
 npx playwright install --with-deps chromium
 cp .env.example .env
 npm test
@@ -23,24 +26,36 @@ Useful commands:
 
 | Command | What it does |
 |---|---|
-| `npm test` | Runs the whole suite |
-| `npm test -- --headed` | With a visible browser |
-| `npm test -- --grep @auth` | Registration and authentication only |
-| `npm test -- --grep @accounts` | Account operations only |
-| `npm test -- --grep @unit` | Money helpers only (no network) |
+| `npm test` | Unit tests, then every browser lane |
+| `npm run test:full` | Every browser lane, including pinned known defects |
+| `npm run test:e2e` | Functional browser tests only |
+| `npm run test:smoke` | Two read-only public smoke checks |
+| `npm run test:read-only` | Safe functional reads; one retry in CI |
+| `npm run test:mutating` | Functional tests that write; never retried |
+| `npm run test:known-defects` | Defect-pinning lane; never retried |
+| `npm run test:headed` | Every browser lane with a visible browser |
+| `npm run test:unit` | All hermetic unit tests, always with zero retries |
+| `npm run audit` | Fails on high/critical dependency advisories |
 | `npm run report` | Opens the last HTML report |
-| `npx tsc --noEmit` | Typecheck |
+| `npm run typecheck` | Typecheck |
 
-### Why the default is 2 workers
+### Why the default is 1 worker
 
-Measured, not chosen by habit. At 4 workers the suite trips the Cloudflare rate
-limiting in front of the demo and tests start failing on truncated responses. At 2
-workers it runs clean in ~1.5 min. Override with `WORKERS` in `.env` or `--workers=N`,
-at your own risk.
+Measured against the only available target. Four workers trip Cloudflare quickly;
+two have completed a run but have also tripped the limit during a later full run.
+One worker is slower but is the responsible default for the shared demo. The config
+rejects values above 2 and stops the run after its first failure to avoid turning an
+outage or rate limit into dozens of requests.
 
 ### Configuration
 
-`.env.example` documents the variables. The only required one is `BASE_URL`.
+`.env.example` documents the variables. The suite performs a lightweight check
+of both `index.htm` and `register.htm` before opening browsers; a rate limit or
+unhealthy demo therefore stops the run before it creates partial test data.
+
+`RUN_ID` is supplied by CI and included in generated usernames. On failure, the
+report also contains the run/worker/retry metadata, the safe customer identity
+(never the password), failed requests, HTTP errors and browser console errors.
 
 ---
 
@@ -73,7 +88,8 @@ at your own risk.
 | TC28 | `tests/api/rest.spec.ts` | the API reports the same account as the UI |
 
 Tests prefixed `D##` do not cover a functional case: they **pin a defect in the
-application** so they break the day it is fixed. They are catalogued in `STRATEGY.md`.
+application** so they break the day it is fixed. They run in the separate
+`known-defect` project and are catalogued in `STRATEGY.md`.
 
 ## Cases that are not automated
 
@@ -94,12 +110,13 @@ src/
   pages/        one page object per screen (12)
   flows/        SessionFlow, CustomerFlow — registration, login, data setup
   fixtures/     test.ts — injects pages, an open session and the API client
-  data/         factories producing data unique per worker
-  support/      api.ts (REST client), money.ts (integer-cent arithmetic), dates.ts
+  data/         factories producing data unique per run and worker
+  setup/        remote-environment preflight
+  support/      REST client + runtime contracts, errors, money and dates
 tests/
   public/       public site, no session
   auth/         registration, login, lookup
   accounts/     accounts, transfers, bill pay, loans, search, profile
   api/          REST verification
-  unit/         money helpers, no network
+  unit/         hermetic helpers and factories, no browser or network
 ```

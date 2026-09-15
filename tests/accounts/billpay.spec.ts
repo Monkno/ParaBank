@@ -1,7 +1,7 @@
 import { test, expect } from '../../src/fixtures/test';
 import { dollarsToCents } from '../../src/support/money';
 
-test.describe('Bill Pay @accounts', () => {
+test.describe('Bill Pay @accounts @mutating', () => {
   test('TC21 — an empty Bill Pay form reports every field and pays nothing', async ({
     signedIn,
     billPayPage,

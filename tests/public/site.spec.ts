@@ -4,8 +4,8 @@ import { test, expect } from '../../src/fixtures/test';
  * The public shell. Nothing here signs in, so nothing here writes to the shared
  * database — these are the only cases in the suite that leave no trace.
  */
-test.describe('Public site @public', () => {
-  test('TC01 — the home page carries the login panel, the news list and the service lists', async ({
+test.describe('Public site @public @read-only', () => {
+  test('TC01 — the home page carries the login panel, the news list and the service lists @smoke', async ({
     homePage,
     page,
   }) => {
@@ -60,7 +60,7 @@ test.describe('Public site @public', () => {
     { label: 'Contact Us', path: '/parabank/contact.htm', title: 'ParaBank | Customer Care', marker: '#contactForm' },
   ] as const;
 
-  test('TC02 — every footer destination answers 200 and renders its own content', async ({ homePage, page }) => {
+  test('TC02 — every footer destination answers 200 and renders its own content @smoke', async ({ homePage, page }) => {
     for (const destination of destinations) {
       await homePage.open();
 
@@ -98,7 +98,7 @@ test.describe('Public site @public', () => {
    * the body. If this ever starts rendering the marketing copy, this test goes
    * red and the defect is closed.
    */
-  test('D08 — the Services page serves a raw CXF service list instead of ParaBank content', async ({
+  test('D08 — the Services page serves a raw CXF service list instead of ParaBank content @known-defect', async ({
     homePage,
     page,
   }) => {

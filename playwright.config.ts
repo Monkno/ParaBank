@@ -5,31 +5,45 @@ dotenv.config();
 
 const isCI = !!process.env.CI;
 
+function configuredWorkers(): number {
+  const raw = process.env.WORKERS;
+  if (raw === undefined) {
+    return 1;
+  }
+
+  const workers = Number(raw);
+  if (!Number.isInteger(workers) || workers < 1 || workers > 2) {
+    throw new Error(`WORKERS must be 1 or 2 for the shared public demo; received ${JSON.stringify(raw)}`);
+  }
+  return workers;
+}
+
 export default defineConfig({
   testDir: './tests',
+  testIgnore: ['unit/**'],
   outputDir: './test-results',
+  globalSetup: './src/setup/preflight.ts',
 
   fullyParallel: true,
 
   /**
-   * 2, measured. The ceiling here is not the driver or the server but a
+   * 1 by default. The ceiling here is not the driver or the server but a
    * Cloudflare rate limit in front of the shared demo: at 4 workers the suite
    * tripped it 35 seconds in and every subsequent request from this address was
    * answered 429 ("Error 1015 - you are being rate limited") for roughly five
-   * minutes. At 2 workers the same browser tests finish in about 75 seconds with no
-   * throttling at all. More parallelism buys nothing and costs the whole run.
+   * minutes. Two workers have passed in isolation but also tripped the limit in a
+   * later full run, so they remain an explicit opt-in rather than the safe default.
    * See STRATEGY.md, "The Cloudflare rate limit".
    */
-  workers: process.env.WORKERS ? Number(process.env.WORKERS) : 2,
+  workers: configuredWorkers(),
 
-  /**
-   * The public demo answers a request in 250 ms on a good day and stalls for 20 s
-   * on a bad one, and its database is periodically wiped by whoever hits
-   * admin.htm. Retries absorb that noise without hiding defects, because
-   * `trace: 'on-first-retry'` means every retry leaves evidence to read.
-   */
-  retries: isCI ? 2 : 0,
+  // Retry policy belongs to each workload below: safe reads may retry once,
+  // while anything that writes is never replayed against the shared database.
+  retries: 0,
   forbidOnly: isCI,
+  // Stop a systemic outage or rate limit from needlessly hammering the shared
+  // third-party demo for the rest of the run.
+  maxFailures: 1,
 
   timeout: 120_000,
   expect: { timeout: 20_000 },
@@ -44,7 +58,9 @@ export default defineConfig({
     actionTimeout: 25_000,
     navigationTimeout: 60_000,
 
-    trace: 'on-first-retry',
+    // Capture the execution that actually failed. With `on-first-retry`, a
+    // locally failing test (zero retries) produced no trace at all.
+    trace: 'retain-on-failure',
     screenshot: 'only-on-failure',
     video: 'retain-on-failure',
     viewport: { width: 1440, height: 900 },
@@ -61,5 +77,26 @@ export default defineConfig({
     locale: 'en-US',
   },
 
-  projects: [{ name: 'chromium', use: { ...devices['Desktop Chrome'] } }],
+  projects: [
+    {
+      name: 'functional-read-only',
+      grep: /@read-only/,
+      grepInvert: /@known-defect/,
+      retries: isCI ? 1 : 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'functional-mutating',
+      grep: /@mutating/,
+      grepInvert: /@known-defect/,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+    {
+      name: 'known-defect',
+      grep: /@known-defect/,
+      retries: 0,
+      use: { ...devices['Desktop Chrome'] },
+    },
+  ],
 });

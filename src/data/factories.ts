@@ -1,19 +1,28 @@
-import { faker } from '@faker-js/faker';
+import { randomInt } from 'node:crypto';
 import type { Customer, Payee } from './types';
 
+let sequence = 0;
+
 /**
- * A token unique per worker and per millisecond, and recognisable as belonging
- * to this suite. Everything the suite writes to the shared demo carries one, so
- * a leftover row can be traced to a run and never confused with a human's data.
+ * A token unique per worker and sequence, and recognisable as belonging to this
+ * suite. CI supplies RUN_ID so a leftover row can be traced back to its workflow
+ * execution; local runs fall back to the current timestamp.
  *
- * `TEST_WORKER_INDEX` and not a random number alone: two workers starting in the
- * same millisecond is not hypothetical at three-way parallelism, and a username
- * collision on ParaBank does not fail loudly — it silently re-renders the
- * registration form with "This username already exists."
+ * `TEST_WORKER_INDEX` and not a random number alone: concurrent workers share a
+ * run identifier, and a username collision on ParaBank does not fail loudly —
+ * it silently re-renders the registration form with "This username already
+ * exists."
  */
 export function uniqueTag(): string {
   const worker = process.env.TEST_WORKER_INDEX ?? '0';
-  return `${worker}${Date.now()}${faker.string.numeric(3)}`;
+  const configuredRun = process.env.RUN_ID?.replace(/\D/g, '').slice(-14);
+  const run = configuredRun || String(Date.now());
+  sequence += 1;
+  return `${run}${worker}${String(sequence).padStart(3, '0')}`;
+}
+
+function numeric(length: number): string {
+  return String(randomInt(0, 10 ** length)).padStart(length, '0');
 }
 
 function customerPassword(): string {
@@ -35,14 +44,17 @@ export function buildCustomer(overrides: Partial<Customer> = {}): Customer {
   return {
     firstName: `Qa${tag}`,
     lastName: `Suite${tag}`,
-    street: `${faker.number.int({ min: 1, max: 9999 })} ${faker.location.street()}`,
-    city: faker.location.city(),
-    state: faker.location.state({ abbreviated: true }),
-    zipCode: faker.location.zipCode('#####'),
-    phoneNumber: faker.string.numeric(10),
+    // Stable, ASCII-only defaults keep random punctuation and locale data from
+    // turning ordinary regression tests into accidental input-fuzzing tests.
+    // Boundary and encoding cases should override a field explicitly.
+    street: `${randomInt(1, 10_000)} Automation Way`,
+    city: 'Austin',
+    state: 'TX',
+    zipCode: numeric(5),
+    phoneNumber: numeric(10),
     // Formatted like a real SSN but drawn from the whole space, so two parallel
     // workers colliding is a 1-in-10^9 event rather than a certainty.
-    ssn: `${faker.string.numeric(3)}-${faker.string.numeric(2)}-${faker.string.numeric(4)}`,
+    ssn: `${numeric(3)}-${numeric(2)}-${numeric(4)}`,
     username: `qa${tag}`,
     password: customerPassword(),
     ...overrides,
@@ -53,12 +65,12 @@ export function buildPayee(overrides: Partial<Payee> = {}): Payee {
   const tag = uniqueTag();
   return {
     name: `Payee ${tag}`,
-    street: `${faker.number.int({ min: 1, max: 9999 })} ${faker.location.street()}`,
-    city: faker.location.city(),
-    state: faker.location.state({ abbreviated: true }),
-    zipCode: faker.location.zipCode('#####'),
-    phoneNumber: faker.string.numeric(10),
-    accountNumber: faker.string.numeric(5),
+    street: `${randomInt(1, 10_000)} Automation Way`,
+    city: 'Austin',
+    state: 'TX',
+    zipCode: numeric(5),
+    phoneNumber: numeric(10),
+    accountNumber: numeric(5),
     ...overrides,
   };
 }
